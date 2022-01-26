@@ -1,3 +1,5 @@
+#include "home_platform.h"
+
 #include <windows.h>
 #include "win32_platform.h"
 
@@ -16,7 +18,8 @@ Win32GetWindowDim(HWND Window)
     return(Result);
 }
 
-internal void Win32ResizeDIBSection(win32_image_buffer *Buffer, int32 Width, int32 Height)
+internal void 
+Win32ResizeImageBuffer(win32_image_buffer *Buffer, uint32 Width, uint32 Height)
 {
     if(Buffer->Pixels)
     {
@@ -29,18 +32,18 @@ internal void Win32ResizeDIBSection(win32_image_buffer *Buffer, int32 Width, int
     
     Buffer->BmpInfo = {0};
     Buffer->BmpInfo.bmiHeader.biWidth = Width;
-    
-    // NOTE(stylia): Negative means top down
-    Buffer->BmpInfo.bmiHeader.biHeight = -Height; 
+    // NOTE(stylia): Negative height means top down bitmap
+    Buffer->BmpInfo.bmiHeader.biHeight = -(int32)Height; 
     Buffer->BmpInfo.bmiHeader.biPlanes = 1;
     Buffer->BmpInfo.bmiHeader.biBitCount = 8*BYTES_PER_PIXEL;
     Buffer->BmpInfo.bmiHeader.biCompression = BI_RGB;
     Buffer->BmpInfo.bmiHeader.biSize = sizeof(Buffer->BmpInfo.bmiHeader);
     Buffer->Pitch = Width*BYTES_PER_PIXEL;
     
-    memory_index BmpSize = BYTES_PER_PIXEL*Width*Height;
+    mem_index BmpSize = BYTES_PER_PIXEL*Width*Height;
     
     Buffer->Pixels = VirtualAlloc(0, BmpSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    Assert(Buffer->Pixels);
 }
 
 internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer, HDC DeviceContext,
@@ -51,7 +54,7 @@ internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer, HDC DeviceCon
 
 
 
-
+// TODO(stylia): Fix this
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, 
                 UINT Message, 
@@ -131,14 +134,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     if(!RegisterClassA(&WindowClass))
     {
-        // TODO(stylia): Think about error handling
+        // TODO(stylia): Proper error handling
         DWORD Error = GetLastError();
         OutputDebugString("Could not register class: Error \n");
         return(-1);
     }
     
-    // TODO(stylia): Think about the window size
-    // Target Res is 1024x768 
+    // TODO(stylia): Think about the window size and target res
     // WindowWidth = 1024 + 64
     // WindowHeight = 768 + 64
     HWND Window = CreateWindowA("StyliaEngineWindow", "StyliaEngine",
@@ -156,7 +158,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     // TODO(stylia): Think about the DIB size
     win32_image_buffer Win32ImageBuffer = {};
-    Win32ResizeDIBSection(&Win32ImageBuffer, 1024, 768);
+    Win32ResizeImageBuffer(&Win32ImageBuffer, 1024, 768);
     
     if(!Win32ImageBuffer.Pixels)
     {

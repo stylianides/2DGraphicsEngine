@@ -3,7 +3,7 @@
 set CompilerFlags=-EHa- -FC -FeHomeEngine -FmHomeEngine -FoHomeEngine -GR- -nologo -Od -Oi -Z7
 set WarningFlags=-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505
 set LinkerFlags=-opt:ref -incremental:no user32.lib gdi32.lib
-set ProgramFlags=-DSLOW
+set ProgramFlags=-DSLOW_BUILD
 
 if not exist "../build/" mkdir "../build/"
 pushd "../build/"
