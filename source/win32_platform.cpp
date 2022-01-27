@@ -1,9 +1,41 @@
 #include "home_platform.h"
 
 #include <windows.h>
+#include <stdio.h>
+
 #include "win32_platform.h"
 
-global int GlobalRunning;
+global bool32 GlobalRunning;
+global int64 GlobalTicksPerSecond;
+
+internal void
+DEBUGWin32FillImageBuffer(win32_image_buffer *Buffer, uint32 Colour)
+{
+    uint32 *Pixel = (uint32 *)Buffer->Pixels;
+    
+    for(uint32 Y = 0;
+        Y < Buffer->Height;
+        ++Y)
+    {
+        for(uint32 X = 0;
+            X < Buffer->Width;
+            ++X)
+        {
+            *(Pixel++) = Colour;
+        }
+    }
+}
+
+internal inline
+int64 Win32GetTime()
+{
+    LARGE_INTEGER Ticks = {};
+    
+    QueryPerformanceCounter(&Ticks);
+    Assert(Ticks.QuadPart != 0);
+    
+    return(Ticks.QuadPart);
+}
 
 inline win32_window_dim
 Win32GetWindowDim(HWND Window)
@@ -16,6 +48,27 @@ Win32GetWindowDim(HWND Window)
     Result.Height = Rect.bottom - Rect.top;
     
     return(Result);
+}
+
+internal void
+Win32InitializeArena(mem_arena *Arena, mem_index Size)
+{
+    Arena->Size = Size;
+    Arena->Used = 0;
+    Arena->Base = VirtualAlloc(0, Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    Assert(Arena->Base);
+}
+
+internal void
+Win32FreeArena(mem_arena *Arena)
+{
+    if(Arena->Base)
+    {
+        VirtualFree(Arena->Base, 0, MEM_RELEASE);
+    }
+    Arena->Size = 0;
+    Arena->Used = 0;
+    Arena->Base = 0;
 }
 
 internal void 
@@ -46,10 +99,36 @@ Win32ResizeImageBuffer(win32_image_buffer *Buffer, uint32 Width, uint32 Height)
     Assert(Buffer->Pixels);
 }
 
-internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer, HDC DeviceContext,
-                                       int32 WindowWidth, int32 WindowHeight)
+internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer, 
+                                       HDC DC, uint32 DCWidth, uint32 DCHeight, 
+                                       uint32 OffsetX = 10, uint32 OffsetY = 10)
 {
-    PatBlt(DeviceContext, 0, 0, WindowWidth, WindowHeight, BLACKNESS);
+    Assert((DCWidth > Buffer->Width + OffsetX) &&
+           (DCHeight > Buffer->Height + OffsetY));
+    
+    if((DCWidth > Buffer->Width + OffsetX) &&
+       (DCHeight > Buffer->Height + OffsetY))
+    {
+        PatBlt(DC, 0, 0, OffsetX, DCHeight, BLACKNESS);
+        PatBlt(DC, 0, 0, DCWidth, OffsetY, BLACKNESS);
+        PatBlt(DC, OffsetX + Buffer->Width, 0, DCWidth, DCHeight, BLACKNESS);
+        PatBlt(DC, 0, OffsetY + Buffer->Height, DCWidth, DCHeight, BLACKNESS);
+        
+        uint32 DestX = OffsetX;
+        uint32 DestY = OffsetY;
+        uint32 DestWidth = Buffer->Width;
+        uint32 DestHeight = Buffer->Height;
+        
+        uint32 SourceX = 0;
+        uint32 SourceY = 0;
+        uint32 SourceWidth = Buffer->Width;
+        uint32 SourceHeight = Buffer->Height;
+        
+        StretchDIBits(DC, DestX, DestY, DestWidth, DestHeight,
+                      SourceX, SourceY, SourceWidth, SourceHeight, 
+                      Buffer->Pixels, &Buffer->BmpInfo,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
 }
 
 
@@ -113,14 +192,18 @@ Win32WindowProc(HWND Window,
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, INT CmdShow)
 {
-    LARGE_INTEGER PerfFrequency;
-    if(!QueryPerformanceFrequency(&PerfFrequency))
+    LARGE_INTEGER PerformanceCounter;
+    if(!QueryPerformanceFrequency(&PerformanceCounter))
     {
+        // TODO(stylia): Proper error handling
         // TODO(stylia): Older system failure?
         DWORD Error = GetLastError();
         OutputDebugString("Could get performance frequency \n");
         return(-1);
     }
+    
+    GlobalTicksPerSecond = PerformanceCounter.QuadPart;
+    real32 TargetFPS = 60.0f;
     
     WNDCLASSA WindowClass = {0};
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
@@ -134,7 +217,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     if(!RegisterClassA(&WindowClass))
     {
-        // TODO(stylia): Proper error handling
         DWORD Error = GetLastError();
         OutputDebugString("Could not register class: Error \n");
         return(-1);
@@ -166,9 +248,30 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
+    // TODO(stylia): Think about minimum requirments
+    game_state GameState = {};
+    Win32InitializeArena(&GameState.PermanentArena, MegaBytes(100));
+    Win32InitializeArena(&GameState.TransientArena, GigaBytes(1));
+    
+    if(!GameState.PermanentArena.Base)
+    {
+        OutputDebugString("Could not allocate permanent memory \n");
+        return(-1);
+    }
+    
+    if(!GameState.PermanentArena.Base)
+    {
+        OutputDebugString("Could not allocate transient memory \n");
+        return(-1);
+    }
+    
+    DEBUGWin32FillImageBuffer(&Win32ImageBuffer, 0x00FF00FF);
+    
     GlobalRunning = true;
     while(GlobalRunning)
     {
+        int64 BeginFrame = Win32GetTime();
+        
         // TODO(stylia): Better msg loop
         MSG Message = {0};
         TranslateMessage(&Message);
@@ -176,9 +279,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         
         win32_window_dim WindowDim = Win32GetWindowDim(Window);
         
+        
         Win32CopyImageBufferToDC(&Win32ImageBuffer, WindowDC, 
                                  WindowDim.Width, WindowDim.Height);
+        
+        int64 ElapsedTicks = Win32GetTime() - BeginFrame; 
+        real64 SecondsForFrame = (real64)ElapsedTicks / (real64)GlobalTicksPerSecond;
+        real64 FPS = 1.0f / SecondsForFrame;
+        
+#if DEBUG
+        char FPSBuffer[256] = {};
+        snprintf(FPSBuffer, 256, "FPS: %f \n", FPS);
+        
+        OutputDebugString(FPSBuffer);
+#endif
     }
+    
+    Win32FreeArena(&GameState.PermanentArena);
+    Win32FreeArena(&GameState.TransientArena);
     
     return(0);
 }

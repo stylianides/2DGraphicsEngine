@@ -6,7 +6,7 @@
 #define local_persist static
 
 #if SLOW_BUILD
-#define Assert(Expr) if(!(Expr)){(int *)0 = 0;}
+#define Assert(Expr) if(!(Expr)){*(int *)0 = 0;}
 #else
 #define Assert(Expr)
 #endif
@@ -44,5 +44,18 @@ typedef float real32;
 typedef double real64;
 
 typedef size_t mem_index;
+
+struct mem_arena
+{
+    mem_index Size;
+    mem_index Used;
+    void *Base;
+};
+
+struct game_state
+{
+    mem_arena PermanentArena;
+    mem_arena TransientArena;
+};
 
 #endif //HOME_PLATFORM_H
