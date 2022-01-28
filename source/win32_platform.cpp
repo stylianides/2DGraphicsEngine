@@ -2,11 +2,79 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <xinput.h>
 
 #include "win32_platform.h"
+#include "home_engine.h"
 
 global bool32 GlobalRunning;
 global int64 GlobalTicksPerSecond;
+
+#define X_INPUT_GET_STATE(Name) DWORD Name(DWORD dwUserIndex, XINPUT_STATE *pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+    return(ERROR_DEVICE_NOT_CONNECTED);
+}
+global x_input_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+#define X_INPUT_SET_STATE(Name) DWORD Name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+    return(ERROR_DEVICE_NOT_CONNECTED);
+}
+
+global x_input_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputSetState XInputSetState_
+
+internal void Win32LoadXInput()
+{
+    HMODULE XInputLib = LoadLibraryA("xinput1_4.dll");
+    
+    if(!XInputLib)
+    {
+        XInputLib = LoadLibraryA("xinput1_3.dll");
+    }
+    
+    if(XInputLib)
+    {
+        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLib, "XInputGetState");
+        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLib, "XInputSetState");
+        
+        if(!XInputGetState)
+        {
+            XInputGetState = XInputGetStateStub;
+        }
+        
+        if(!XInputSetState)
+        {
+            XInputSetState = XInputSetStateStub;
+        }
+    }
+    else
+    {
+        XInputGetState = XInputGetStateStub;
+        XInputSetState = XInputSetStateStub;
+    }
+}
+
+internal void
+Win32InputProcessButton(engine_input_controller *Controller, 
+                        engine_button_types ButtonType, bool32 Pressed)
+{
+    if(!Pressed)
+    {
+        Controller->Buttons[ButtonType].Press = 0;
+    }
+    else
+    {
+        Controller->Buttons[ButtonType].Press++;
+    }
+}
 
 internal void
 DEBUGWin32FillImageBuffer(win32_image_buffer *Buffer, uint32 Colour)
@@ -132,7 +200,6 @@ internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer,
 }
 
 
-
 // TODO(stylia): Fix this
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, 
@@ -188,7 +255,6 @@ Win32WindowProc(HWND Window,
     
     return(Result);
 }
-
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, INT CmdShow)
 {
@@ -248,24 +314,28 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
+    engine_state EngineState = {};
     // TODO(stylia): Think about minimum requirments
-    game_state GameState = {};
-    Win32InitializeArena(&GameState.PermanentArena, MegaBytes(100));
-    Win32InitializeArena(&GameState.TransientArena, GigaBytes(1));
+    Win32InitializeArena(&EngineState.PermanentArena, MegaBytes(100));
+    Win32InitializeArena(&EngineState.TransientArena, GigaBytes(1));
     
-    if(!GameState.PermanentArena.Base)
+    if(!EngineState.PermanentArena.Base)
     {
         OutputDebugString("Could not allocate permanent memory \n");
         return(-1);
     }
     
-    if(!GameState.PermanentArena.Base)
+    if(!EngineState.PermanentArena.Base)
     {
         OutputDebugString("Could not allocate transient memory \n");
         return(-1);
     }
     
     DEBUGWin32FillImageBuffer(&Win32ImageBuffer, 0x00FF00FF);
+    
+    
+    Win32LoadXInput();
+    engine_input EngineInput = {0};
     
     GlobalRunning = true;
     while(GlobalRunning)
@@ -277,8 +347,46 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         TranslateMessage(&Message);
         DispatchMessageA(&Message);
         
-        win32_window_dim WindowDim = Win32GetWindowDim(Window);
         
+        // TODO(stylia): Analog Handling
+        for(uint32 ControllerIndex = 0;
+            ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
+            ++ControllerIndex)
+        {
+            XINPUT_STATE ControllerState;
+            
+            if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+            {
+                EngineInput.Controllers[ControllerIndex].IsConnected = true;
+                
+                XINPUT_GAMEPAD Gamepad = ControllerState.Gamepad;
+                
+                bool32 Up = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                bool32 Down = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                bool32 Left = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                bool32 Right = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                bool32 Jump = Gamepad.wButtons & XINPUT_GAMEPAD_A;
+                bool32 Attack = Gamepad.wButtons & XINPUT_GAMEPAD_X;
+                bool32 Power = Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                bool32 Start = Gamepad.wButtons & XINPUT_GAMEPAD_START;
+                
+                engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
+                Win32InputProcessButton(Controller, Input_Up, Up);
+                Win32InputProcessButton(Controller, Input_Down, Down);
+                Win32InputProcessButton(Controller, Input_Left, Left);
+                Win32InputProcessButton(Controller, Input_Right, Right);
+                Win32InputProcessButton(Controller, Input_Jump, Jump);
+                Win32InputProcessButton(Controller, Input_Attack, Attack);
+                Win32InputProcessButton(Controller, Input_Power, Power);
+                Win32InputProcessButton(Controller, Input_Start, Start);
+            }
+            else
+            {
+                EngineInput.Controllers[ControllerIndex].IsConnected = false;
+            }
+        }
+        
+        win32_window_dim WindowDim = Win32GetWindowDim(Window);
         
         Win32CopyImageBufferToDC(&Win32ImageBuffer, WindowDC, 
                                  WindowDim.Width, WindowDim.Height);
@@ -295,8 +403,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
 #endif
     }
     
-    Win32FreeArena(&GameState.PermanentArena);
-    Win32FreeArena(&GameState.TransientArena);
+    Win32FreeArena(&EngineState.PermanentArena);
+    Win32FreeArena(&EngineState.TransientArena);
     
     return(0);
 }

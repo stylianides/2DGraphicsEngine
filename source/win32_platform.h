@@ -2,6 +2,7 @@
 #ifndef WIN32_PLATFORM_H
 #define WIN32_PLATFORM_H
 
+#define MAX_CONTROLLERS 4
 
 struct win32_window_dim
 {

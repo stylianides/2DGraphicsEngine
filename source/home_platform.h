@@ -52,10 +52,4 @@ struct mem_arena
     void *Base;
 };
 
-struct game_state
-{
-    mem_arena PermanentArena;
-    mem_arena TransientArena;
-};
-
 #endif //HOME_PLATFORM_H
