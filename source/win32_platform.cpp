@@ -8,7 +8,9 @@
 #include "home_engine.h"
 
 global bool32 GlobalRunning;
+global bool32 GlobalPause;
 global int64 GlobalTicksPerSecond;
+global win32_image_buffer GlobalImageBuffer;
 
 #define X_INPUT_GET_STATE(Name) DWORD Name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -118,26 +120,6 @@ Win32GetWindowDim(HWND Window)
     return(Result);
 }
 
-internal void
-Win32InitializeArena(mem_arena *Arena, mem_index Size)
-{
-    Arena->Size = Size;
-    Arena->Used = 0;
-    Arena->Base = VirtualAlloc(0, Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    Assert(Arena->Base);
-}
-
-internal void
-Win32FreeArena(mem_arena *Arena)
-{
-    if(Arena->Base)
-    {
-        VirtualFree(Arena->Base, 0, MEM_RELEASE);
-    }
-    Arena->Size = 0;
-    Arena->Used = 0;
-    Arena->Base = 0;
-}
 
 internal void 
 Win32ResizeImageBuffer(win32_image_buffer *Buffer, uint32 Width, uint32 Height)
@@ -199,8 +181,6 @@ internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer,
     }
 }
 
-
-// TODO(stylia): Fix this
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, 
                 UINT Message, 
@@ -211,9 +191,14 @@ Win32WindowProc(HWND Window,
     LRESULT Result = 0;
     switch(Message)
     {
-        case WM_CREATE:
+        case WM_QUIT:
+        case WM_DESTROY:
+        case WM_KEYDOWN:
+        case WM_SYSKEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYUP:
         {
-            OutputDebugString("WM_CREATE\n");
+            InvalidCodePath;
         }break;
         
         case WM_ACTIVATEAPP:
@@ -223,28 +208,12 @@ Win32WindowProc(HWND Window,
         
         case WM_PAINT:
         {
-            /*PAINTSTRUCT Paint = {0};
-            Paint.hdc = GetDC(Window);
-            Paint.fErase = false;
-            RECT Rect = GetPaintArea(Window);
-            BeginPaint(Window, &Paint);*/
-        }break;
-        
-        case WM_SIZE:
-        {
-            OutputDebugString("WM_SIZE\n");
-        }break;
-        
-        case WM_DESTROY:
-        {
-            OutputDebugString("WM_DESTROY\n");
-            GlobalRunning = false;
-        }break;
-        
-        case WM_QUIT:
-        {
-            OutputDebugString("WM_CLOSE\n");
-            GlobalRunning = false;
+            PAINTSTRUCT Paint = {0};
+            HDC DC = BeginPaint(Window, &Paint);
+            win32_window_dim WindowDim = Win32GetWindowDim(Window);
+            Win32CopyImageBufferToDC(&GlobalImageBuffer, DC, 
+                                     WindowDim.Width, WindowDim.Height);
+            EndPaint(Window, &Paint);
         }break;
         
         default:
@@ -305,10 +274,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     HDC WindowDC = GetDC(Window);
     
     // TODO(stylia): Think about the DIB size
-    win32_image_buffer Win32ImageBuffer = {};
-    Win32ResizeImageBuffer(&Win32ImageBuffer, 1024, 768);
+    Win32ResizeImageBuffer(&GlobalImageBuffer, 1024, 768);
     
-    if(!Win32ImageBuffer.Pixels)
+    if(!GlobalImageBuffer.Pixels)
     {
         OutputDebugString("DIB Section could not be initialized \n");
         return(-1);
@@ -316,23 +284,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     engine_state EngineState = {};
     // TODO(stylia): Think about minimum requirments
-    Win32InitializeArena(&EngineState.PermanentArena, MegaBytes(100));
-    Win32InitializeArena(&EngineState.TransientArena, GigaBytes(1));
     
-    if(!EngineState.PermanentArena.Base)
-    {
-        OutputDebugString("Could not allocate permanent memory \n");
-        return(-1);
-    }
     
-    if(!EngineState.PermanentArena.Base)
-    {
-        OutputDebugString("Could not allocate transient memory \n");
-        return(-1);
-    }
-    
-    DEBUGWin32FillImageBuffer(&Win32ImageBuffer, 0x00FF00FF);
-    
+    DEBUGWin32FillImageBuffer(&GlobalImageBuffer, 0x00FF00FF);
     
     Win32LoadXInput();
     engine_input EngineInput = {0};
@@ -342,69 +296,181 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     {
         int64 BeginFrame = Win32GetTime();
         
-        // TODO(stylia): Better msg loop
-        MSG Message = {0};
-        TranslateMessage(&Message);
-        DispatchMessageA(&Message);
-        
-        
-        // TODO(stylia): Analog Handling
-        for(uint32 ControllerIndex = 0;
-            ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
-            ++ControllerIndex)
+        MSG Message;
+        while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
         {
-            XINPUT_STATE ControllerState;
+            engine_input_controller *Keyboard = &EngineInput.Keyboard;
             
-            if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+            switch(Message.message)
             {
-                EngineInput.Controllers[ControllerIndex].IsConnected = true;
+                case WM_KEYDOWN:
+                case WM_SYSKEYDOWN:
+                case WM_KEYUP:
+                case WM_SYSKEYUP:
+                {
+                    bool32 IsDown = ((Message.message == WM_KEYUP) ||
+                                     (Message.message == WM_SYSKEYUP)) ? false : true;
+                    
+                    // TODO(stylia): Think about button layout, this is temporary
+                    switch(Message.wParam)
+                    {
+                        case W_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Up, IsDown);
+                        }break;
+                        
+                        case S_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Down, IsDown);
+                        }break;
+                        
+                        case A_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Left, IsDown);
+                        }break;
+                        
+                        case D_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Right, IsDown);
+                        }break;
+                        
+                        case SPACE_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Jump, IsDown);
+                        }break;
+                        
+                        case E_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Attack, IsDown);
+                        }break;
+                        
+                        case F_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Power, IsDown);
+                        }break;
+                        
+                        case ESC_KEY:
+                        {
+                            Win32InputProcessButton(Keyboard, Input_Start, IsDown);
+                        }break;
+                        
+                        case P_KEY:
+                        {
+                            GlobalPause = (GlobalPause) ? false : true;
+                        }break;
+                        
+                        default:
+                        {
+                            TranslateMessage(&Message);
+                            DispatchMessageA(&Message);
+                        }break;
+                    }
+                }break;
                 
-                XINPUT_GAMEPAD Gamepad = ControllerState.Gamepad;
+                case WM_DESTROY:
+                case WM_QUIT:
+                {
+                    GlobalPause = true;
+                    GlobalRunning = false;
+                }break;
                 
-                bool32 Up = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                bool32 Down = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-                bool32 Left = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-                bool32 Right = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-                bool32 Jump = Gamepad.wButtons & XINPUT_GAMEPAD_A;
-                bool32 Attack = Gamepad.wButtons & XINPUT_GAMEPAD_X;
-                bool32 Power = Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-                bool32 Start = Gamepad.wButtons & XINPUT_GAMEPAD_START;
-                
-                engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
-                Win32InputProcessButton(Controller, Input_Up, Up);
-                Win32InputProcessButton(Controller, Input_Down, Down);
-                Win32InputProcessButton(Controller, Input_Left, Left);
-                Win32InputProcessButton(Controller, Input_Right, Right);
-                Win32InputProcessButton(Controller, Input_Jump, Jump);
-                Win32InputProcessButton(Controller, Input_Attack, Attack);
-                Win32InputProcessButton(Controller, Input_Power, Power);
-                Win32InputProcessButton(Controller, Input_Start, Start);
-            }
-            else
-            {
-                EngineInput.Controllers[ControllerIndex].IsConnected = false;
+                default:
+                {
+                    TranslateMessage(&Message);
+                    DispatchMessageA(&Message);
+                }break;
             }
         }
         
-        win32_window_dim WindowDim = Win32GetWindowDim(Window);
-        
-        Win32CopyImageBufferToDC(&Win32ImageBuffer, WindowDC, 
-                                 WindowDim.Width, WindowDim.Height);
-        
-        int64 ElapsedTicks = Win32GetTime() - BeginFrame; 
-        real64 SecondsForFrame = (real64)ElapsedTicks / (real64)GlobalTicksPerSecond;
-        real64 FPS = 1.0f / SecondsForFrame;
-        
+        if(!GlobalPause)
+        {
+            for(uint32 ControllerIndex = 0;
+                ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
+                ++ControllerIndex)
+            {
+                XINPUT_STATE ControllerState;
+                
+                if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+                {
+                    EngineInput.Controllers[ControllerIndex].IsConnected = true;
+                    
+                    XINPUT_GAMEPAD *Gamepad = &ControllerState.Gamepad;
+                    
+                    bool32 Up = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                    bool32 Down = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                    bool32 Left = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                    bool32 Right = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                    bool32 A = Gamepad->wButtons & XINPUT_GAMEPAD_A;
+                    bool32 X = Gamepad->wButtons & XINPUT_GAMEPAD_X;
+                    bool32 RightShoulder = Gamepad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                    bool32 Start = Gamepad->wButtons & XINPUT_GAMEPAD_START;
+                    
+                    engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
+                    Win32InputProcessButton(Controller, Input_Up, Up);
+                    Win32InputProcessButton(Controller, Input_Down, Down);
+                    Win32InputProcessButton(Controller, Input_Left, Left);
+                    Win32InputProcessButton(Controller, Input_Right, Right);
+                    Win32InputProcessButton(Controller, Input_Jump, A);
+                    Win32InputProcessButton(Controller, Input_Attack, X);
+                    Win32InputProcessButton(Controller, Input_Power, RightShoulder);
+                    Win32InputProcessButton(Controller, Input_Start, Start);
+                    
+                    real32 StickX = Gamepad->sThumbLX;
+                    real32 StickY = Gamepad->sThumbLY;
+                    
+                    if(StickX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                    {
+                        Controller->StickX = StickX / -32768.0f;
+                    }
+                    else if(StickX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                    {
+                        Controller->StickX = StickX / 32767.0f;
+                    }
+                    else
+                    {
+                        Controller->StickX = 0.0f;
+                    }
+                    
+                    if(StickY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                    {
+                        Controller->StickY = StickY / -32768.0f;
+                    }
+                    else if(StickY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                    {
+                        Controller->StickY = StickY / 32767.0f;
+                    }
+                    else
+                    {
+                        Controller->StickY = 0.0f;
+                    }
+                    
+                    Controller->IsAnalog = 
+                    (Controller->StickX || Controller->StickY) ? true : false;
+                }
+                else
+                {
+                    EngineInput.Controllers[ControllerIndex].IsConnected = false;
+                }
+            }
+            
+            
+            win32_window_dim WindowDim = Win32GetWindowDim(Window);
+            
+            Win32CopyImageBufferToDC(&GlobalImageBuffer, WindowDC, 
+                                     WindowDim.Width, WindowDim.Height);
+            
+            int64 ElapsedTicks = Win32GetTime() - BeginFrame; 
+            real64 SecondsForFrame = (real64)ElapsedTicks / (real64)GlobalTicksPerSecond;
+            real64 FPS = 1.0f / SecondsForFrame;
+            
 #if DEBUG
-        char FPSBuffer[256] = {};
-        snprintf(FPSBuffer, 256, "FPS: %f \n", FPS);
-        
-        OutputDebugString(FPSBuffer);
+            char FPSBuffer[256] = {};
+            snprintf(FPSBuffer, 256, "FPS: %f \n", FPS);
+            
+            OutputDebugString(FPSBuffer);
 #endif
+        }
     }
-    
-    Win32FreeArena(&EngineState.PermanentArena);
-    Win32FreeArena(&EngineState.TransientArena);
     
     return(0);
 }

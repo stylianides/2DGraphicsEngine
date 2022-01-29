@@ -45,11 +45,4 @@ typedef double real64;
 
 typedef size_t mem_index;
 
-struct mem_arena
-{
-    mem_index Size;
-    mem_index Used;
-    void *Base;
-};
-
 #endif //HOME_PLATFORM_H
