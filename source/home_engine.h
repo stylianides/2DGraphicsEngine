@@ -3,7 +3,7 @@
 #ifndef HOME_ENGINE_H
 #define HOME_ENGINE_H
 
-#include "home_platform.h"
+#include "home_engine_platform.h"
 
 #define MAX_PLAYERS 2
 
@@ -23,18 +23,6 @@ InitializeArena(mem_arena *Arena, mem_index Size)
     Assert(Arena->Base);
 }
 
-internal void
-FreeArena(mem_arena *Arena)
-{
-    if(Arena->Base)
-    {
-        VirtualFree(Arena->Base, 0, MEM_RELEASE);
-    }
-    Arena->Size = 0;
-    Arena->Used = 0;
-    Arena->Base = 0;
-}
-
 #define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type))
 #define PushArray(Arena, type, Amount) (type *)PushSize_(Arena, Amount*sizeof(type))
 
@@ -47,18 +35,6 @@ internal void *PushSize_(mem_arena *Arena, mem_index Size)
     
     return(Result);
 }
-
-enum engine_button_types
-{
-    Input_Up = 0,
-    Input_Down = 1,
-    Input_Left = 2,
-    Input_Right = 3,
-    Input_Jump = 4,
-    Input_Attack = 5,
-    Input_Power = 6,
-    Input_Start  = 7,
-};
 
 struct engine_input_button
 {
@@ -74,22 +50,56 @@ struct engine_input_controller
     real32 StickX;
     real32 StickY;
     
-    engine_input_button Buttons[8];
+    union
+    {
+        struct
+        {
+            engine_input_button Up;
+            engine_input_button Down;
+            engine_input_button Left;
+            engine_input_button Right;
+            engine_input_button Jump;
+            engine_input_button Attack;
+            engine_input_button Power;
+            engine_input_button Start;
+        };
+        engine_input_button ButtonList[8];
+    }Buttons;
 };
 
-// TODO(stylia): Is it better if keyboard is on the ControllersArray
+// TODO(stylia): Is it better if keyboard is on the ControllersArray?
 struct engine_input
 {
     engine_input_controller Keyboard;
     engine_input_controller Controllers[MAX_PLAYERS];
 };
 
+struct engine_sound
+{
+    
+};
+
+struct engine_image
+{
+    
+};
+
 struct engine_state
 {
-    mem_arena PermanentArena;
-    mem_arena TransientArena;
+    void *Memory;
+    mem_index MemorySize;
+    bool32 IsMemoryInitialized;
     
-    engine_input Input;
+    mem_arena PermanentArena;
+    mem_index PermanentArenaSize;
+    
+    mem_arena TransientArena;
+    mem_index TransientArenaSize;
 };
+
+extern "C" void EngineUpdateAndRender(engine_state *State, engine_input *Input, engine_image *Buffer);
+
+extern "C" void EngineOutputSound(engine_state *State, engine_sound *Sound);
+
 
 #endif //HOME_ENGINE_H

@@ -33,4 +33,8 @@ struct win32_image_buffer
     void *Pixels;
 };
 
+struct win32_state
+{
+    void *Memory;
+};
 #endif //WIN32_PLATFORM_H

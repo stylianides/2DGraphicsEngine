@@ -1,10 +1,10 @@
-#include "home_platform.h"
+#include "home_engine_platform.h"
 
 #include <windows.h>
 #include <stdio.h>
 #include <xinput.h>
 
-#include "win32_platform.h"
+#include "win32_home_engine.h"
 #include "home_engine.h"
 
 global bool32 GlobalRunning;
@@ -65,17 +65,9 @@ internal void Win32LoadXInput()
 }
 
 internal void
-Win32InputProcessButton(engine_input_controller *Controller, 
-                        engine_button_types ButtonType, bool32 Pressed)
+Win32InputProcessButton(engine_input_button *Button,  bool32 Pressed)
 {
-    if(!Pressed)
-    {
-        Controller->Buttons[ButtonType].Press = 0;
-    }
-    else
-    {
-        Controller->Buttons[ButtonType].Press++;
-    }
+    Button->Press = (Pressed) ? Button->Press + 1 : 0;
 }
 
 internal void
@@ -273,6 +265,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     ShowWindow(Window, CmdShow);
     HDC WindowDC = GetDC(Window);
     
+    win32_state ProgramState = {};
+    
     // TODO(stylia): Think about the DIB size
     Win32ResizeImageBuffer(&GlobalImageBuffer, 1024, 768);
     
@@ -282,14 +276,29 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
-    engine_state EngineState = {};
-    // TODO(stylia): Think about minimum requirments
-    
-    
     DEBUGWin32FillImageBuffer(&GlobalImageBuffer, 0x00FF00FF);
     
     Win32LoadXInput();
-    engine_input EngineInput = {0};
+    
+    // TODO(stylia): Think about minimum requirments
+    mem_index PermanentMemorySize = MegaBytes(100);
+    mem_index TransientMemorySize = GigaBytes(1);
+    
+    ProgramState.Memory = VirtualAlloc(0, PermanentMemorySize + TransientMemorySize
+                                       , MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    
+    if(!ProgramState.Memory)
+    {
+        OutputDebugString("Could not initialize program memory \n");
+        return(-1);
+    }
+    
+    engine_state EngineState = {};
+    
+    EngineState.Memory = ProgramState.Memory;
+    EngineState.MemorySize = PermanentMemorySize + TransientMemorySize;
+    
+    engine_input EngineInput = {};
     
     GlobalRunning = true;
     while(GlobalRunning)
@@ -316,42 +325,42 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                     {
                         case W_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Up, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Up, IsDown);
                         }break;
                         
                         case S_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Down, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Down, IsDown);
                         }break;
                         
                         case A_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Left, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Left, IsDown);
                         }break;
                         
                         case D_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Right, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Right, IsDown);
                         }break;
                         
                         case SPACE_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Jump, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Jump, IsDown);
                         }break;
                         
                         case E_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Attack, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Attack, IsDown);
                         }break;
                         
                         case F_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Power, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Power, IsDown);
                         }break;
                         
                         case ESC_KEY:
                         {
-                            Win32InputProcessButton(Keyboard, Input_Start, IsDown);
+                            Win32InputProcessButton(&Keyboard->Buttons.Start, IsDown);
                         }break;
                         
                         case P_KEY:
@@ -406,14 +415,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                     bool32 Start = Gamepad->wButtons & XINPUT_GAMEPAD_START;
                     
                     engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
-                    Win32InputProcessButton(Controller, Input_Up, Up);
-                    Win32InputProcessButton(Controller, Input_Down, Down);
-                    Win32InputProcessButton(Controller, Input_Left, Left);
-                    Win32InputProcessButton(Controller, Input_Right, Right);
-                    Win32InputProcessButton(Controller, Input_Jump, A);
-                    Win32InputProcessButton(Controller, Input_Attack, X);
-                    Win32InputProcessButton(Controller, Input_Power, RightShoulder);
-                    Win32InputProcessButton(Controller, Input_Start, Start);
+                    Win32InputProcessButton(&Controller->Buttons.Up, Up);
+                    Win32InputProcessButton(&Controller->Buttons.Down, Down);
+                    Win32InputProcessButton(&Controller->Buttons.Left, Left);
+                    Win32InputProcessButton(&Controller->Buttons.Right, Right);
+                    Win32InputProcessButton(&Controller->Buttons.Jump, A);
+                    Win32InputProcessButton(&Controller->Buttons.Attack, X);
+                    Win32InputProcessButton(&Controller->Buttons.Power, RightShoulder);
+                    Win32InputProcessButton(&Controller->Buttons.Start, Start);
                     
                     real32 StickX = Gamepad->sThumbLX;
                     real32 StickY = Gamepad->sThumbLY;
@@ -453,9 +462,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 }
             }
             
-            
             win32_window_dim WindowDim = Win32GetWindowDim(Window);
-            
             Win32CopyImageBufferToDC(&GlobalImageBuffer, WindowDC, 
                                      WindowDim.Width, WindowDim.Height);
             
