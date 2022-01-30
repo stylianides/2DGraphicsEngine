@@ -11,7 +11,7 @@ pushd "../build/"
 
 cl -LD %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/home_engine.cpp /link %LinkerFlags% -EXPORT:EngineUpdateAndRender -EXPORT:EngineOutputSound
 
-cl %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/win32_home_engine.cpp /link %LinkerFlags% user32.lib gdi32.lib
+cl %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/win32_home_engine.cpp /link %LinkerFlags% user32.lib gdi32.lib winmm.lib
 
 popd
 

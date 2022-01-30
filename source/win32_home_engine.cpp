@@ -230,7 +230,22 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     }
     
     GlobalTicksPerSecond = PerformanceCounter.QuadPart;
-    real32 TargetFPS = 60.0f;
+    real32 TargetFPS = 60;
+    real32 TargetSecondsPerFrame = 1.0f / TargetFPS;
+    int64 TargetTicksPerFrame = int64(TargetSecondsPerFrame * GlobalTicksPerSecond);
+    
+    // NOTE(stylia): Set the best granularity for timers, 
+    //               so the task scheduler can be more accurate
+    //               waking up the app after it sleeps
+    uint32 TimerGranularity = 1;
+    while(timeBeginPeriod(TimerGranularity) == TIMERR_NOCANDO)
+    {
+        TimerGranularity++;
+        if(TimerGranularity == 10)
+        {
+            break;
+        }
+    }
     
     WNDCLASSA WindowClass = {0};
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
@@ -313,8 +328,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             switch(Message.message)
             {
                 case WM_KEYDOWN:
-                case WM_SYSKEYDOWN:
                 case WM_KEYUP:
+                case WM_SYSKEYDOWN:
                 case WM_SYSKEYUP:
                 {
                     bool32 IsDown = ((Message.message == WM_KEYUP) ||
@@ -366,12 +381,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         case P_KEY:
                         {
                             GlobalPause = (GlobalPause) ? false : true;
-                        }break;
-                        
-                        default:
-                        {
-                            TranslateMessage(&Message);
-                            DispatchMessageA(&Message);
                         }break;
                     }
                 }break;
@@ -466,9 +475,18 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             Win32CopyImageBufferToDC(&GlobalImageBuffer, WindowDC, 
                                      WindowDim.Width, WindowDim.Height);
             
-            int64 ElapsedTicks = Win32GetTime() - BeginFrame; 
-            real64 SecondsForFrame = (real64)ElapsedTicks / (real64)GlobalTicksPerSecond;
-            real64 FPS = 1.0f / SecondsForFrame;
+            
+            int64 TicksElapsed = Win32GetTime() - BeginFrame;
+            while(TicksElapsed < TargetTicksPerFrame)
+            {
+                int64 RemainingTicks = TargetTicksPerFrame - TicksElapsed;
+                int32 RemainingMS = int32(1000.f * ((real64)RemainingTicks / (real64)GlobalTicksPerSecond));
+                Sleep(RemainingMS);
+                TicksElapsed = Win32GetTime() - BeginFrame;
+            }
+            
+            real64 SecondsElapsed = (real64)TicksElapsed / (real64)GlobalTicksPerSecond;
+            real64 FPS = 1.0f / SecondsElapsed;
             
 #if DEBUG
             char FPSBuffer[256] = {};
@@ -478,6 +496,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
 #endif
         }
     }
+    
+    timeEndPeriod(TimerGranularity);
     
     return(0);
 }
