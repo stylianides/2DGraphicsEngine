@@ -33,6 +33,83 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 global x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
+internal FILETIME Win32GetFileLastWriteTime(char *FileName)
+{
+    FILETIME Result = {};
+    
+    HANDLE FileHandle;
+    FileHandle = CreateFileA(FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        GetFileTime(FileHandle, 0, 0, &Result);
+        CloseHandle(FileHandle);
+    }
+    
+    return(Result);
+}
+
+internal void
+Win32ConcatString(char *Dest, uint32 DestSize, char *Str)
+{
+    while((*Str) && (DestSize > 0))
+    {
+        *Dest++ = *Str++;
+        DestSize--;
+    }
+}
+
+internal void 
+Win32ContructDLLPath(char *Dest, int32 DestSize, char *DLLPath)
+{
+    GetCurrentDirectory(DestSize, Dest);
+    
+    char *Current = Dest;
+    uint32 CurrentSize = DestSize;
+    
+    char *LastSlash = 0;
+    uint32 LastSlashSize = 0;
+    
+    while((*Current) && (CurrentSize > 0))
+    {
+        if(*Current == '\\')
+        {
+            LastSlash = Current;
+            LastSlashSize = CurrentSize;
+        }
+        
+        CurrentSize--;
+        Current++;
+    }
+    
+    Win32ConcatString(LastSlash, LastSlashSize, DLLPath);
+}
+
+internal void 
+Win32ReloadEngineDLL(win32_state *WinState)
+{
+    if(WinState->EngineDLL_Loaded)
+    {
+        FreeLibrary(WinState->EngineDLL_Loaded);
+        WinState->EngineDLL_Loaded = 0;
+        WinState->EngineUpdateAndRender = 0;
+        WinState->EngineOutputSound = 0;
+    }
+    
+    if(CopyFileA(WinState->EngineDLLPath, WinState->EngineDLLPath_Loaded, FALSE))
+    {
+        WinState->EngineDLL_Loaded = LoadLibraryA(WinState->EngineDLLPath_Loaded);
+        
+        if(WinState->EngineDLL_Loaded)
+        {
+            WinState->EngineUpdateAndRender = (engine_update_and_render *)GetProcAddress(WinState->EngineDLL_Loaded, "EngineUpdateAndRender");
+            WinState->EngineOutputSound = (engine_output_sound *)GetProcAddress(WinState->EngineDLL_Loaded, "EngineOutputSound");
+            
+            WinState->EngineDLL_LastWriteTime = Win32GetFileLastWriteTime(WinState->EngineDLLPath);
+        }
+    }
+}
+
 internal void Win32LoadXInput()
 {
     HMODULE XInputLib = LoadLibraryA("xinput1_4.dll");
@@ -68,24 +145,6 @@ internal void
 Win32InputProcessButton(engine_input_button *Button,  bool32 Pressed)
 {
     Button->Press = (Pressed) ? Button->Press + 1 : 0;
-}
-
-internal void
-DEBUGWin32FillImageBuffer(win32_image_buffer *Buffer, uint32 Colour)
-{
-    uint32 *Pixel = (uint32 *)Buffer->Pixels;
-    
-    for(uint32 Y = 0;
-        Y < Buffer->Height;
-        ++Y)
-    {
-        for(uint32 X = 0;
-            X < Buffer->Width;
-            ++X)
-        {
-            *(Pixel++) = Colour;
-        }
-    }
 }
 
 internal inline
@@ -237,11 +296,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     // NOTE(stylia): Set the best granularity for timers, 
     //               so the task scheduler can be more accurate
     //               waking up the app after it sleeps
-    uint32 TimerGranularity = 1;
-    while(timeBeginPeriod(TimerGranularity) == TIMERR_NOCANDO)
+    uint32 MSTimerGranularity = 1;
+    while(timeBeginPeriod(MSTimerGranularity) == TIMERR_NOCANDO)
     {
-        TimerGranularity++;
-        if(TimerGranularity == 10)
+        MSTimerGranularity++;
+        if(MSTimerGranularity == 10)
         {
             break;
         }
@@ -280,7 +339,29 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     ShowWindow(Window, CmdShow);
     HDC WindowDC = GetDC(Window);
     
-    win32_state ProgramState = {};
+    win32_state WinState = {};
+    
+    // TODO(stylia): Think about minimum requirments
+    mem_index PermanentMemorySize = MegaBytes(100);
+    mem_index TransientMemorySize = GigaBytes(1);
+    
+    GetCurrentDirectory(256, WinState.EngineDLLPath);
+    Win32ContructDLLPath(WinState.EngineDLLPath, 256, "\\build\\home_engine.dll\0");
+    Win32ContructDLLPath(WinState.EngineDLLPath_Loaded, 256, "\\build\\home_engine_loaded.dll");
+    Win32ReloadEngineDLL(&WinState);
+    
+    WinState.Memory = VirtualAlloc(0, PermanentMemorySize + TransientMemorySize
+                                   , MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    
+    if(!WinState.Memory)
+    {
+        OutputDebugString("Could not initialize program memory \n");
+        return(-1);
+    }
+    
+    engine_state EngineState = {};
+    EngineState.Memory = WinState.Memory;
+    EngineState.MemorySize = PermanentMemorySize + TransientMemorySize;
     
     // TODO(stylia): Think about the DIB size
     Win32ResizeImageBuffer(&GlobalImageBuffer, 1024, 768);
@@ -291,34 +372,21 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
-    DEBUGWin32FillImageBuffer(&GlobalImageBuffer, 0x00FF00FF);
-    
     Win32LoadXInput();
-    
-    // TODO(stylia): Think about minimum requirments
-    mem_index PermanentMemorySize = MegaBytes(100);
-    mem_index TransientMemorySize = GigaBytes(1);
-    
-    ProgramState.Memory = VirtualAlloc(0, PermanentMemorySize + TransientMemorySize
-                                       , MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    
-    if(!ProgramState.Memory)
-    {
-        OutputDebugString("Could not initialize program memory \n");
-        return(-1);
-    }
-    
-    engine_state EngineState = {};
-    
-    EngineState.Memory = ProgramState.Memory;
-    EngineState.MemorySize = PermanentMemorySize + TransientMemorySize;
-    
     engine_input EngineInput = {};
+    
     
     GlobalRunning = true;
     while(GlobalRunning)
     {
         int64 BeginFrame = Win32GetTime();
+        
+        FILETIME DLLWriteTimeNow = Win32GetFileLastWriteTime(WinState.EngineDLLPath); 
+        
+        if(CompareFileTime(&DLLWriteTimeNow, &WinState.EngineDLL_LastWriteTime) == FILE_TIME_LATER)
+        {
+            Win32ReloadEngineDLL(&WinState);
+        }
         
         MSG Message;
         while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
@@ -471,33 +539,49 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 }
             }
             
+            if(WinState.EngineOutputSound)
+            {
+                engine_sound EngineSound = {};
+                
+                WinState.EngineOutputSound(&EngineState, &EngineSound);
+            }
+            
+            if(WinState.EngineUpdateAndRender)
+            {
+                engine_image EngineImageBuffer = {};
+                EngineImageBuffer.Width = GlobalImageBuffer.Width;
+                EngineImageBuffer.Height = GlobalImageBuffer.Height;
+                EngineImageBuffer.Pixels = GlobalImageBuffer.Pixels;
+                
+                WinState.EngineUpdateAndRender(&EngineState, &EngineInput, &EngineImageBuffer);
+            }
+            
             win32_window_dim WindowDim = Win32GetWindowDim(Window);
             Win32CopyImageBufferToDC(&GlobalImageBuffer, WindowDC, 
                                      WindowDim.Width, WindowDim.Height);
-            
-            
-            int64 TicksElapsed = Win32GetTime() - BeginFrame;
-            while(TicksElapsed < TargetTicksPerFrame)
-            {
-                int64 RemainingTicks = TargetTicksPerFrame - TicksElapsed;
-                int32 RemainingMS = int32(1000.f * ((real64)RemainingTicks / (real64)GlobalTicksPerSecond));
-                Sleep(RemainingMS);
-                TicksElapsed = Win32GetTime() - BeginFrame;
-            }
-            
-            real64 SecondsElapsed = (real64)TicksElapsed / (real64)GlobalTicksPerSecond;
-            real64 FPS = 1.0f / SecondsElapsed;
-            
-#if DEBUG
-            char FPSBuffer[256] = {};
-            snprintf(FPSBuffer, 256, "FPS: %f \n", FPS);
-            
-            OutputDebugString(FPSBuffer);
-#endif
         }
+        
+        int64 TicksElapsed = Win32GetTime() - BeginFrame;
+        while(TicksElapsed < TargetTicksPerFrame)
+        {
+            int64 RemainingTicks = TargetTicksPerFrame - TicksElapsed;
+            int32 RemainingMS = int32(1000.f * ((real64)RemainingTicks / (real64)GlobalTicksPerSecond));
+            Sleep(RemainingMS);
+            TicksElapsed = Win32GetTime() - BeginFrame;
+        }
+        
+        real64 SecondsElapsed = (real64)TicksElapsed / (real64)GlobalTicksPerSecond;
+        real64 FPS = 1.0f / SecondsElapsed;
+        
+#if DEBUG
+        char FPSBuffer[256] = {};
+        snprintf(FPSBuffer, 256, "FPS: %f \n", FPS);
+        
+        OutputDebugString(FPSBuffer);
+#endif
     }
     
-    timeEndPeriod(TimerGranularity);
+    timeEndPeriod(MSTimerGranularity);
     
     return(0);
 }

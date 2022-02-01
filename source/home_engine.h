@@ -81,7 +81,10 @@ struct engine_sound
 
 struct engine_image
 {
+    void *Pixels;
     
+    uint32 Width;
+    uint32 Height;
 };
 
 struct engine_state
@@ -97,9 +100,14 @@ struct engine_state
     mem_index TransientArenaSize;
 };
 
-extern "C" void EngineUpdateAndRender(engine_state *State, engine_input *Input, engine_image *Buffer);
+#define ENGINE_UPDATE_AND_RENDER(Name) void Name(engine_state *State, engine_input *Input, engine_image *Buffer)
+typedef ENGINE_UPDATE_AND_RENDER(engine_update_and_render);
+extern "C" ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender);
 
-extern "C" void EngineOutputSound(engine_state *State, engine_sound *Sound);
+
+#define ENGINE_OUTPUT_SOUND(Name) void Name(engine_state *State, engine_sound *Sound)
+typedef ENGINE_OUTPUT_SOUND(engine_output_sound);
+extern "C" ENGINE_OUTPUT_SOUND(EngineOutputSound);
 
 
 #endif //HOME_ENGINE_H

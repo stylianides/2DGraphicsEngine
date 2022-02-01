@@ -2,7 +2,10 @@
 #ifndef WIN32_PLATFORM_H
 #define WIN32_PLATFORM_H
 
+#include "home_engine.h"
+
 #define MAX_CONTROLLERS 4
+#define FILE_TIME_LATER 1
 
 #define A_KEY 0x41 
 #define D_KEY 0x44 
@@ -36,5 +39,14 @@ struct win32_image_buffer
 struct win32_state
 {
     void *Memory;
+    
+    char EngineDLLPath[256]; // NOTE(stylia): This is never loaded, only created
+    FILETIME EngineDLL_LastWriteTime;
+    
+    HMODULE EngineDLL_Loaded;
+    char EngineDLLPath_Loaded[256]; // NOTE(stylia): This is loaded
+    
+    engine_update_and_render *EngineUpdateAndRender;
+    engine_output_sound *EngineOutputSound;
 };
 #endif //WIN32_PLATFORM_H
