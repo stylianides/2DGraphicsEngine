@@ -1,11 +1,10 @@
-#include "home_engine_platform.h"
 
 #include <windows.h>
 #include <stdio.h>
 #include <xinput.h>
 
 #include "win32_home_engine.h"
-#include "home_engine.h"
+#include "home_engine_platform.h"
 
 global bool32 GlobalRunning;
 global bool32 GlobalPause;
@@ -33,12 +32,70 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 global x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
-internal FILETIME Win32GetFileLastWriteTime(char *FileName)
+internal 
+DEBUG_PLATFORM_READ_FILE(Win32DEBUGReadFile)
+{
+    file_contents Result = {};
+    
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD FileSizeHigh = 0;
+        DWORD FileSizeLow = GetFileSize(FileHandle, &FileSizeHigh);
+        Assert((FileSizeHigh == 0) && FileSizeLow > 0);
+        
+        Result.Size = FileSizeLow;
+        Result.Contents = VirtualAlloc(0, Result.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        Assert(Result.Contents);
+        
+        if(Result.Contents)
+        {
+            DWORD BytesRead = 0;
+            int32 Error = ReadFile(FileHandle, Result.Contents, Result.Size, &BytesRead, 0);
+            
+            Assert(Error);
+            Assert(BytesRead == Result.Size);
+        }
+        
+        CloseHandle(&FileHandle);
+    }
+    
+    return(Result);
+}
+
+internal
+DEBUG_PLATFORM_WRITE_FILE(Win32DEBUGWriteFile)
+{
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
+    
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten = 0;
+        int32 Error = WriteFile(FileHandle, BytesToWrite, Size, &BytesWritten, 0);
+        Assert(Error);
+        Assert(Size == BytesWritten);
+        
+        Error = CloseHandle(&FileHandle);
+        Assert(Error);
+    }
+}
+
+internal
+DEBUG_PLATFORM_FREE_FILE(Win32DEBUGFreeFile)
+{
+    int32 Error = VirtualFree(FileContents.Contents, 0, MEM_RELEASE);
+    Assert(Error);
+}
+
+internal FILETIME Win32GetFileLastWriteTime(char *Filename)
 {
     FILETIME Result = {};
     
     HANDLE FileHandle;
-    FileHandle = CreateFileA(FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    FileHandle = CreateFileA(Filename, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
@@ -86,26 +143,26 @@ Win32ContructDLLPath(char *Dest, int32 DestSize, char *DLLPath)
 }
 
 internal void 
-Win32ReloadEngineDLL(win32_state *WinState)
+Win32ReloadEngineDLL(win32_engine_code *EngineCode)
 {
-    if(WinState->EngineDLL_Loaded)
+    if(EngineCode->EngineDLL_Loaded)
     {
-        FreeLibrary(WinState->EngineDLL_Loaded);
-        WinState->EngineDLL_Loaded = 0;
-        WinState->EngineUpdateAndRender = 0;
-        WinState->EngineOutputSound = 0;
+        FreeLibrary(EngineCode->EngineDLL_Loaded);
+        EngineCode->EngineDLL_Loaded = 0;
+        EngineCode->EngineUpdateAndRender = 0;
+        EngineCode->EngineOutputSound = 0;
     }
     
-    if(CopyFileA(WinState->EngineDLLPath, WinState->EngineDLLPath_Loaded, FALSE))
+    if(CopyFileA(EngineCode->EngineDLLPath, EngineCode->EngineDLLPath_Loaded, FALSE))
     {
-        WinState->EngineDLL_Loaded = LoadLibraryA(WinState->EngineDLLPath_Loaded);
+        EngineCode->EngineDLL_Loaded = LoadLibraryA(EngineCode->EngineDLLPath_Loaded);
         
-        if(WinState->EngineDLL_Loaded)
+        if(EngineCode->EngineDLL_Loaded)
         {
-            WinState->EngineUpdateAndRender = (engine_update_and_render *)GetProcAddress(WinState->EngineDLL_Loaded, "EngineUpdateAndRender");
-            WinState->EngineOutputSound = (engine_output_sound *)GetProcAddress(WinState->EngineDLL_Loaded, "EngineOutputSound");
+            EngineCode->EngineUpdateAndRender = (engine_update_and_render *)GetProcAddress(EngineCode->EngineDLL_Loaded, "EngineUpdateAndRender");
+            EngineCode->EngineOutputSound = (engine_output_sound *)GetProcAddress(EngineCode->EngineDLL_Loaded, "EngineOutputSound");
             
-            WinState->EngineDLL_LastWriteTime = Win32GetFileLastWriteTime(WinState->EngineDLLPath);
+            EngineCode->EngineDLL_LastWriteTime = Win32GetFileLastWriteTime(EngineCode->EngineDLLPath);
         }
     }
 }
@@ -339,18 +396,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     ShowWindow(Window, CmdShow);
     HDC WindowDC = GetDC(Window);
     
+    
     win32_state WinState = {};
-    
     // TODO(stylia): Think about minimum requirments
-    mem_index PermanentMemorySize = MegaBytes(100);
-    mem_index TransientMemorySize = GigaBytes(1);
+    WinState.PermanentMemorySize = MegaBytes(100);
+    WinState.TransientMemorySize = GigaBytes(1);
     
-    GetCurrentDirectory(256, WinState.EngineDLLPath);
-    Win32ContructDLLPath(WinState.EngineDLLPath, 256, "\\build\\home_engine.dll\0");
-    Win32ContructDLLPath(WinState.EngineDLLPath_Loaded, 256, "\\build\\home_engine_loaded.dll");
-    Win32ReloadEngineDLL(&WinState);
-    
-    WinState.Memory = VirtualAlloc(0, PermanentMemorySize + TransientMemorySize
+    WinState.Memory = VirtualAlloc(0, WinState.PermanentMemorySize + 
+                                   WinState.TransientMemorySize
                                    , MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
     if(!WinState.Memory)
@@ -359,9 +412,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
-    engine_state EngineState = {};
-    EngineState.Memory = WinState.Memory;
-    EngineState.MemorySize = PermanentMemorySize + TransientMemorySize;
+    win32_engine_code EngineCode = {};
+    GetCurrentDirectory(256, EngineCode.EngineDLLPath);
+    Win32ContructDLLPath(EngineCode.EngineDLLPath, 256, "\\build\\home_engine.dll\0");
+    Win32ContructDLLPath(EngineCode.EngineDLLPath_Loaded, 256, "\\build\\home_engine_loaded.dll");
+    Win32ReloadEngineDLL(&EngineCode);
     
     // TODO(stylia): Think about the DIB size
     Win32ResizeImageBuffer(&GlobalImageBuffer, 1024, 768);
@@ -372,6 +427,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
+    engine_state EngineState = {};
+    EngineState.DEBUGPlatformReadFile = Win32DEBUGReadFile;
+    EngineState.DEBUGPlatformWriteFile = Win32DEBUGWriteFile;
+    EngineState.DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
+    
     Win32LoadXInput();
     engine_input EngineInput = {};
     
@@ -381,11 +441,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     {
         int64 BeginFrame = Win32GetTime();
         
-        FILETIME DLLWriteTimeNow = Win32GetFileLastWriteTime(WinState.EngineDLLPath); 
+        FILETIME DLLWriteTimeNow = Win32GetFileLastWriteTime(EngineCode.EngineDLLPath); 
         
-        if(CompareFileTime(&DLLWriteTimeNow, &WinState.EngineDLL_LastWriteTime) == FILE_TIME_LATER)
+        if(CompareFileTime(&DLLWriteTimeNow, &EngineCode.EngineDLL_LastWriteTime) == FILE_TIME_LATER)
         {
-            Win32ReloadEngineDLL(&WinState);
+            Win32ReloadEngineDLL(&EngineCode);
         }
         
         MSG Message;
@@ -449,6 +509,18 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         case P_KEY:
                         {
                             GlobalPause = (GlobalPause) ? false : true;
+                        }break;
+                        
+                        case L_KEY:
+                        {
+                            /*if(!WinState.Recording)
+                            {
+                            Win32BeginRecording();
+                            }
+                            else
+                            {
+                                Win32StopRecording();
+                            }*/
                         }break;
                     }
                 }break;
@@ -539,21 +611,22 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 }
             }
             
-            if(WinState.EngineOutputSound)
+            if(EngineCode.EngineOutputSound)
             {
                 engine_sound EngineSound = {};
                 
-                WinState.EngineOutputSound(&EngineState, &EngineSound);
+                EngineCode.EngineOutputSound(&EngineState, &EngineSound);
             }
             
-            if(WinState.EngineUpdateAndRender)
+            if(EngineCode.EngineUpdateAndRender)
             {
                 engine_image EngineImageBuffer = {};
                 EngineImageBuffer.Width = GlobalImageBuffer.Width;
                 EngineImageBuffer.Height = GlobalImageBuffer.Height;
+                EngineImageBuffer.Pitch = BYTES_PER_PIXEL*EngineImageBuffer.Width;
                 EngineImageBuffer.Pixels = GlobalImageBuffer.Pixels;
                 
-                WinState.EngineUpdateAndRender(&EngineState, &EngineInput, &EngineImageBuffer);
+                EngineCode.EngineUpdateAndRender(&EngineState, &EngineInput, &EngineImageBuffer);
             }
             
             win32_window_dim WindowDim = Win32GetWindowDim(Window);

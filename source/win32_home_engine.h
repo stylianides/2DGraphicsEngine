@@ -7,13 +7,33 @@
 #define MAX_CONTROLLERS 4
 #define FILE_TIME_LATER 1
 
-#define A_KEY 0x41 
-#define D_KEY 0x44 
-#define E_KEY 0x45 
+#define A_KEY 0x41
+#define B_KEY 0x42
+#define C_KEY 0x43
+#define D_KEY 0x44
+#define E_KEY 0x45
 #define F_KEY 0x46
+#define G_KEY 0x47
+#define H_KEY 0x48
+#define I_KEY 0x49
+#define J_KEY 0x4A
+#define K_KEY 0x4B
+#define L_KEY 0x4C
+#define M_KEY 0x4D
+#define N_KEY 0x4E
+#define O_KEY 0x4F
 #define P_KEY 0x50
-#define S_KEY 0x53 
+#define Q_KEY 0x51
+#define R_KEY 0x52
+#define S_KEY 0x53
+#define T_KEY 0x54
+#define U_KEY 0x55 
+#define V_KEY 0x56 
 #define W_KEY 0x57 
+#define X_KEY 0x58 
+#define Y_KEY 0x59 
+#define Z_KEY 0x5A 
+
 #define SPACE_KEY 0x20
 #define ESC_KEY 0x1B
 
@@ -36,10 +56,8 @@ struct win32_image_buffer
     void *Pixels;
 };
 
-struct win32_state
+struct win32_engine_code
 {
-    void *Memory;
-    
     char EngineDLLPath[256]; // NOTE(stylia): This is never loaded, only created
     FILETIME EngineDLL_LastWriteTime;
     
@@ -48,5 +66,15 @@ struct win32_state
     
     engine_update_and_render *EngineUpdateAndRender;
     engine_output_sound *EngineOutputSound;
+};
+
+struct win32_state
+{
+    void *Memory;
+    
+    mem_index PermanentMemorySize;
+    mem_index TransientMemorySize;
+    
+    int32 RecordingIndex;
 };
 #endif //WIN32_PLATFORM_H

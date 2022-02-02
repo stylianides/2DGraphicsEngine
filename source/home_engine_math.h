@@ -4,6 +4,7 @@
 // TODO(stylia): Make it so math.h is not needed
 #include "math.h"
 
+
 union v2
 {
     struct
@@ -188,4 +189,11 @@ inline real32 Root(real32 A)
     
     return(Result);
 }
+
+struct rect2
+{
+    v2 Min;
+    v2 Max;
+};
+
 #endif //HOMEMATH_H
