@@ -58,14 +58,27 @@ struct win32_image_buffer
 
 struct win32_engine_code
 {
-    char EngineDLLPath[256]; // NOTE(stylia): This is never loaded, only created
+    char EngineDLLPath[MAX_PATH]; // NOTE(stylia): This is never loaded, only created
     FILETIME EngineDLL_LastWriteTime;
     
     HMODULE EngineDLL_Loaded;
-    char EngineDLLPath_Loaded[256]; // NOTE(stylia): This is loaded
+    char EngineDLLPath_Loaded[MAX_PATH]; // NOTE(stylia): This is loaded
     
     engine_update_and_render *EngineUpdateAndRender;
     engine_output_sound *EngineOutputSound;
+};
+
+struct win32_replay_stream
+{
+    HANDLE RecordFile;
+    
+    char Filename[MAX_PATH];
+    
+    bool32 IsRecording;
+    bool32 IsPlayingBack;
+    
+    uint32 PlayingIndex;
+    uint32 RecordingIndex;
 };
 
 struct win32_state
@@ -75,6 +88,8 @@ struct win32_state
     mem_index PermanentMemorySize;
     mem_index TransientMemorySize;
     
-    int32 RecordingIndex;
+    win32_replay_stream ReplayStream;
+    
+    
 };
 #endif //WIN32_PLATFORM_H

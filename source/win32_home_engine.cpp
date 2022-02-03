@@ -59,7 +59,7 @@ DEBUG_PLATFORM_READ_FILE(Win32DEBUGReadFile)
             Assert(BytesRead == Result.Size);
         }
         
-        CloseHandle(&FileHandle);
+        CloseHandle(FileHandle);
     }
     
     return(Result);
@@ -68,17 +68,19 @@ DEBUG_PLATFORM_READ_FILE(Win32DEBUGReadFile)
 internal
 DEBUG_PLATFORM_WRITE_FILE(Win32DEBUGWriteFile)
 {
-    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, OPEN_ALWAYS, 0, 0);
     
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
+        DWORD Error = SetFilePointer(FileHandle, 0, 0, FILE_END);
+        Assert(Error != INVALID_SET_FILE_POINTER);
+        
         DWORD BytesWritten = 0;
-        int32 Error = WriteFile(FileHandle, BytesToWrite, Size, &BytesWritten, 0);
-        Assert(Error);
+        WriteFile(FileHandle, BytesToWrite, Size, &BytesWritten, 0);
         Assert(Size == BytesWritten);
         
-        Error = CloseHandle(&FileHandle);
+        Error = CloseHandle(FileHandle);
         Assert(Error);
     }
 }
@@ -165,6 +167,94 @@ Win32ReloadEngineDLL(win32_engine_code *EngineCode)
             EngineCode->EngineDLL_LastWriteTime = Win32GetFileLastWriteTime(EngineCode->EngineDLLPath);
         }
     }
+}
+
+internal void
+Win32StartRecording(win32_replay_stream *ReplayStream)
+{
+    DeleteFile(ReplayStream->Filename);
+    
+    ReplayStream->IsRecording = true;
+    ReplayStream->RecordingIndex = 0;
+}
+
+internal void
+Win32RecordInput(win32_replay_stream *ReplayStream, engine_input *Input)
+{
+    DWORD BytesWritten = 0;
+    
+    ReplayStream->RecordFile = CreateFileA(ReplayStream->Filename, GENERIC_READ|GENERIC_WRITE, 0, 0, OPEN_ALWAYS, 0, 0);
+    
+    Assert(ReplayStream->RecordFile);
+    DWORD Error = SetFilePointer(ReplayStream->RecordFile, 0, 0, FILE_END);
+    Assert(Error != INVALID_SET_FILE_POINTER);
+    
+    Error = WriteFile(ReplayStream->RecordFile, Input, sizeof(engine_input), &BytesWritten, 0);
+    Assert(sizeof(engine_input) == BytesWritten);
+    
+    if(Error)
+    {
+        ReplayStream->RecordingIndex++;
+    }
+    
+    CloseHandle(ReplayStream->RecordFile);
+}
+
+internal void
+Win32StopRecording(win32_replay_stream *ReplayStream)
+{
+    ReplayStream->IsRecording = false;
+    CloseHandle(ReplayStream->RecordFile);
+}
+
+internal void
+Win32StartPlayback(win32_replay_stream *ReplayStream)
+{
+    ReplayStream->IsPlayingBack = true;
+    ReplayStream->PlayingIndex = 0;
+}
+
+internal engine_input
+Win32GetPlayBackInput(win32_replay_stream *ReplayStream)
+{
+    engine_input Result = {};
+    
+    if(ReplayStream->IsPlayingBack)
+    {
+        DWORD BytesRead = 0;
+        
+        HANDLE FileHandle = CreateFileA(ReplayStream->Filename, GENERIC_READ, FILE_SHARE_READ, 
+                                        0, OPEN_EXISTING, 0, 0);
+        
+        
+        if(ReplayStream->PlayingIndex == ReplayStream->RecordingIndex)
+        {
+            ReplayStream->PlayingIndex = 0;
+        }
+        
+        DWORD Error = SetFilePointer(FileHandle, 
+                                     sizeof(engine_input)*ReplayStream->PlayingIndex, 
+                                     0, FILE_BEGIN);
+        Assert(Error != INVALID_SET_FILE_POINTER);
+        
+        Error = ReadFile(FileHandle, &Result, 
+                         sizeof(engine_input), &BytesRead, 0);
+        
+        Assert(Error);
+        Assert(BytesRead == sizeof(engine_input));
+        
+        ReplayStream->PlayingIndex++;
+        
+        CloseHandle(FileHandle);
+    }
+    
+    return(Result);
+}
+
+internal void
+Win32StopPlayback(win32_replay_stream *ReplayStream)
+{
+    ReplayStream->IsPlayingBack = false;
 }
 
 internal void Win32LoadXInput()
@@ -412,6 +502,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
+    // TODO(stylia): Multiple replay streams
+    Win32ConcatString(WinState.ReplayStream.Filename, MAX_PATH, ".\\home_engine_1.hei");
+    
+    
+    
     win32_engine_code EngineCode = {};
     GetCurrentDirectory(256, EngineCode.EngineDLLPath);
     Win32ContructDLLPath(EngineCode.EngineDLLPath, 256, "\\build\\home_engine.dll\0");
@@ -433,8 +528,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     EngineState.DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
     
     Win32LoadXInput();
-    engine_input EngineInput = {};
-    
     
     GlobalRunning = true;
     while(GlobalRunning)
@@ -448,6 +541,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             Win32ReloadEngineDLL(&EngineCode);
         }
         
+        engine_input EngineInput = {};
         MSG Message;
         while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
         {
@@ -513,14 +607,26 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         
                         case L_KEY:
                         {
-                            /*if(!WinState.Recording)
+                            if(IsDown)
                             {
-                            Win32BeginRecording();
+                                if(!WinState.ReplayStream.IsPlayingBack)
+                                {
+                                    if(!WinState.ReplayStream.IsRecording)
+                                    {
+                                        Win32StartRecording(&WinState.ReplayStream);
+                                    }
+                                    else
+                                    {
+                                        Win32StopRecording(&WinState.ReplayStream);
+                                        Win32StartPlayback(&WinState.ReplayStream);
+                                    }
+                                }
+                                else
+                                {
+                                    Win32StopPlayback(&WinState.ReplayStream);
+                                    
+                                }
                             }
-                            else
-                            {
-                                Win32StopRecording();
-                            }*/
                         }break;
                     }
                 }break;
@@ -542,73 +648,85 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         
         if(!GlobalPause)
         {
-            for(uint32 ControllerIndex = 0;
-                ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
-                ++ControllerIndex)
-            {
-                XINPUT_STATE ControllerState;
+            if(!WinState.ReplayStream.IsPlayingBack){
                 
-                if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+                for(uint32 ControllerIndex = 0;
+                    ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
+                    ++ControllerIndex)
                 {
-                    EngineInput.Controllers[ControllerIndex].IsConnected = true;
+                    XINPUT_STATE ControllerState;
                     
-                    XINPUT_GAMEPAD *Gamepad = &ControllerState.Gamepad;
-                    
-                    bool32 Up = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                    bool32 Down = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-                    bool32 Left = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-                    bool32 Right = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-                    bool32 A = Gamepad->wButtons & XINPUT_GAMEPAD_A;
-                    bool32 X = Gamepad->wButtons & XINPUT_GAMEPAD_X;
-                    bool32 RightShoulder = Gamepad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-                    bool32 Start = Gamepad->wButtons & XINPUT_GAMEPAD_START;
-                    
-                    engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
-                    Win32InputProcessButton(&Controller->Buttons.Up, Up);
-                    Win32InputProcessButton(&Controller->Buttons.Down, Down);
-                    Win32InputProcessButton(&Controller->Buttons.Left, Left);
-                    Win32InputProcessButton(&Controller->Buttons.Right, Right);
-                    Win32InputProcessButton(&Controller->Buttons.Jump, A);
-                    Win32InputProcessButton(&Controller->Buttons.Attack, X);
-                    Win32InputProcessButton(&Controller->Buttons.Power, RightShoulder);
-                    Win32InputProcessButton(&Controller->Buttons.Start, Start);
-                    
-                    real32 StickX = Gamepad->sThumbLX;
-                    real32 StickY = Gamepad->sThumbLY;
-                    
-                    if(StickX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                    if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
                     {
-                        Controller->StickX = StickX / -32768.0f;
-                    }
-                    else if(StickX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                    {
-                        Controller->StickX = StickX / 32767.0f;
+                        EngineInput.Controllers[ControllerIndex].IsConnected = true;
+                        
+                        XINPUT_GAMEPAD *Gamepad = &ControllerState.Gamepad;
+                        
+                        bool32 Up = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                        bool32 Down = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                        bool32 Left = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                        bool32 Right = Gamepad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                        bool32 A = Gamepad->wButtons & XINPUT_GAMEPAD_A;
+                        bool32 X = Gamepad->wButtons & XINPUT_GAMEPAD_X;
+                        bool32 RightShoulder = Gamepad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                        bool32 Start = Gamepad->wButtons & XINPUT_GAMEPAD_START;
+                        
+                        engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
+                        Win32InputProcessButton(&Controller->Buttons.Up, Up);
+                        Win32InputProcessButton(&Controller->Buttons.Down, Down);
+                        Win32InputProcessButton(&Controller->Buttons.Left, Left);
+                        Win32InputProcessButton(&Controller->Buttons.Right, Right);
+                        Win32InputProcessButton(&Controller->Buttons.Jump, A);
+                        Win32InputProcessButton(&Controller->Buttons.Attack, X);
+                        Win32InputProcessButton(&Controller->Buttons.Power, RightShoulder);
+                        Win32InputProcessButton(&Controller->Buttons.Start, Start);
+                        
+                        real32 StickX = Gamepad->sThumbLX;
+                        real32 StickY = Gamepad->sThumbLY;
+                        
+                        if(StickX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                        {
+                            Controller->StickX = StickX / -32768.0f;
+                        }
+                        else if(StickX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                        {
+                            Controller->StickX = StickX / 32767.0f;
+                        }
+                        else
+                        {
+                            Controller->StickX = 0.0f;
+                        }
+                        
+                        if(StickY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                        {
+                            Controller->StickY = StickY / -32768.0f;
+                        }
+                        else if(StickY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                        {
+                            Controller->StickY = StickY / 32767.0f;
+                        }
+                        else
+                        {
+                            Controller->StickY = 0.0f;
+                        }
+                        
+                        Controller->IsAnalog = 
+                        (Controller->StickX || Controller->StickY) ? true : false;
                     }
                     else
                     {
-                        Controller->StickX = 0.0f;
+                        EngineInput.Controllers[ControllerIndex].IsConnected = false;
                     }
-                    
-                    if(StickY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                    {
-                        Controller->StickY = StickY / -32768.0f;
-                    }
-                    else if(StickY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                    {
-                        Controller->StickY = StickY / 32767.0f;
-                    }
-                    else
-                    {
-                        Controller->StickY = 0.0f;
-                    }
-                    
-                    Controller->IsAnalog = 
-                    (Controller->StickX || Controller->StickY) ? true : false;
                 }
-                else
-                {
-                    EngineInput.Controllers[ControllerIndex].IsConnected = false;
-                }
+            }
+            else
+            {
+                EngineInput = Win32GetPlayBackInput(&WinState.ReplayStream);
+            }
+            
+            if(WinState.ReplayStream.IsRecording)
+            {
+                Win32RecordInput(&WinState.ReplayStream, &EngineInput);
             }
             
             if(EngineCode.EngineOutputSound)

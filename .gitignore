@@ -35,6 +35,7 @@
 *.map
 *.4coder
 *.rdbg
+*.hei
 
 /build
 /debug
