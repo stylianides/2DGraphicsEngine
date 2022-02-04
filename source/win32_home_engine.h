@@ -43,7 +43,17 @@ struct win32_window_dim
     int32 Height;
 };
 
-struct win32_image_buffer
+struct win32_sound
+{
+    bool32 IsValid;
+    int32 SamplesPerSecond;
+    int16 Channels;
+    int16 BitsPerSample;
+    
+    void *Samples;
+};
+
+struct win32_image
 {
     BITMAPINFO BmpInfo;
     
@@ -89,7 +99,5 @@ struct win32_state
     mem_index TransientMemorySize;
     
     win32_replay_stream ReplayStream;
-    
-    
 };
-#endif //WIN32_PLATFORM_H
+#endif //WIN32_PLATFORM_H]

@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <xinput.h>
+#include <DSound.h>
 
 #include "win32_home_engine.h"
 #include "home_engine_platform.h"
@@ -9,7 +10,8 @@
 global bool32 GlobalRunning;
 global bool32 GlobalPause;
 global int64 GlobalTicksPerSecond;
-global win32_image_buffer GlobalImageBuffer;
+global win32_image GlobalImageBuffer;
+global LPDIRECTSOUNDBUFFER GlobalSoundBuffer;
 
 #define X_INPUT_GET_STATE(Name) DWORD Name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -31,6 +33,9 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 
 global x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
+
+#define DIRECT_SOUND_CREATE(Name) HRESULT WINAPI Name(LPGUID lpGuid, LPDIRECTSOUND* ppDS, LPUNKNOWN  pUnkOuter);
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 internal 
 DEBUG_PLATFORM_READ_FILE(Win32DEBUGReadFile)
@@ -294,6 +299,96 @@ Win32InputProcessButton(engine_input_button *Button,  bool32 Pressed)
     Button->Press = (Pressed) ? Button->Press + 1 : 0;
 }
 
+internal bool32
+Win32InitDSound(HWND Window, int32 SamplesPerSecond, 
+                int16 Channels, int16 BitsPerSample,
+                LPDIRECTSOUNDBUFFER *SoundBuffer)
+{
+    bool32 IsValid = false;
+    
+    HMODULE DSound = LoadLibraryA("dsound.dll");
+    
+    if(DSound)
+    {
+        direct_sound_create *DSCreate = (direct_sound_create *)GetProcAddress(DSound, "DirectSoundCreate");
+        
+        LPDIRECTSOUND DS;
+        HRESULT SoundResult = DSCreate(0, &DS, 0);
+        
+        if(SoundResult == DS_OK)
+        {
+            SoundResult = DS->SetCooperativeLevel(Window, DSSCL_PRIORITY);
+            if(SoundResult == DS_OK)
+            {
+                DSBUFFERDESC PrimarySoundBufferDesc;
+                PrimarySoundBufferDesc.dwFlags = DSBCAPS_PRIMARYBUFFER;
+                PrimarySoundBufferDesc.dwBufferBytes = 0;
+                PrimarySoundBufferDesc.dwReserved = 0;
+                PrimarySoundBufferDesc.lpwfxFormat = 0;
+                PrimarySoundBufferDesc.guid3DAlgorithm = GUID_NULL;
+                PrimarySoundBufferDesc.dwSize = sizeof(PrimarySoundBufferDesc);
+                
+                LPDIRECTSOUNDBUFFER PrimarySoundBuffer;
+                SoundResult = DS->CreateSoundBuffer(&PrimarySoundBufferDesc, &PrimarySoundBuffer, 0);
+                
+                if(SoundResult == DS_OK)
+                {
+                    WAVEFORMATEX WaveFormat = {};
+                    WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+                    WaveFormat.nChannels = Channels;
+                    WaveFormat.wBitsPerSample = BitsPerSample;
+                    WaveFormat.nSamplesPerSec = SamplesPerSecond;
+                    WaveFormat.nBlockAlign = WaveFormat.nChannels * (WaveFormat.wBitsPerSample / 8);
+                    WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+                    WaveFormat.cbSize = 0;
+                    
+                    DSBUFFERDESC SoundBufferDesc;
+                    SoundBufferDesc.dwFlags = DSBCAPS_GETCURRENTPOSITION2;
+                    SoundBufferDesc.dwBufferBytes = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+                    SoundBufferDesc.dwReserved = 0;
+                    SoundBufferDesc.lpwfxFormat = &WaveFormat;
+                    SoundBufferDesc.guid3DAlgorithm = DS3DALG_DEFAULT;
+                    SoundBufferDesc.dwSize = sizeof(SoundBufferDesc);
+                    
+                    SoundResult = DS->CreateSoundBuffer(&SoundBufferDesc, SoundBuffer, 0);
+                    
+                    if(SoundResult == DS_OK)
+                    {
+                        IsValid = true;
+                    }
+                    else
+                    {
+                        OutputDebugString("Direct Sound: Could not create secondary sound buffer.\n");
+                        IsValid = false;
+                    }
+                }
+                else
+                {
+                    OutputDebugString("Direct Sound: Could not create primary sound buffer.\n");
+                    IsValid = false;
+                }
+            }
+            else
+            {
+                OutputDebugString("Direct Sound: Could not initiate priority level.\n");
+                IsValid = false;
+            }
+        }
+        else
+        {
+            OutputDebugString("Direct Sound: Direct Sound could not be initialized.\n");
+            IsValid = false;
+        }
+    }
+    else
+    {
+        OutputDebugString("Direct Sound: Could not load library.\n");
+        IsValid = false;
+    }
+    
+    return(IsValid);
+}
+
 internal inline
 int64 Win32GetTime()
 {
@@ -320,7 +415,7 @@ Win32GetWindowDim(HWND Window)
 
 
 internal void 
-Win32ResizeImageBuffer(win32_image_buffer *Buffer, uint32 Width, uint32 Height)
+Win32ResizeImageBuffer(win32_image *Buffer, uint32 Width, uint32 Height)
 {
     if(Buffer->Pixels)
     {
@@ -347,7 +442,7 @@ Win32ResizeImageBuffer(win32_image_buffer *Buffer, uint32 Width, uint32 Height)
     Assert(Buffer->Pixels);
 }
 
-internal void Win32CopyImageBufferToDC(win32_image_buffer *Buffer, 
+internal void Win32CopyImageBufferToDC(win32_image *Buffer, 
                                        HDC DC, uint32 DCWidth, uint32 DCHeight, 
                                        uint32 OffsetX = 10, uint32 OffsetY = 10)
 {
@@ -502,7 +597,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
-    // TODO(stylia): Multiple replay streams
+    // TODO(stylia): Multiple replay streams and memory maps
     Win32ConcatString(WinState.ReplayStream.Filename, MAX_PATH, ".\\home_engine_1.hei");
     
     
@@ -529,6 +624,29 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     Win32LoadXInput();
     
+    win32_sound WinSound = {};
+    WinSound.Channels = 2;
+    WinSound.SamplesPerSecond = 44000;
+    WinSound.BitsPerSample = 16;
+    WinSound.IsValid = Win32InitDSound(Window, WinSound.SamplesPerSecond, 
+                                       WinSound.Channels, WinSound.BitsPerSample, 
+                                       &GlobalSoundBuffer);
+    
+    // NOTE(stylia): Allocate around 1 second worth of data
+    WinSound.Samples = VirtualAlloc(0, 
+                                    WinSound.Channels * 
+                                    WinSound.SamplesPerSecond *
+                                    (WinSound.BitsPerSample / 8), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if(!WinSound.Samples)
+    {
+        OutputDebugString("Direct Sound: Could not allocate memomry for samples.\n");
+        WinSound.IsValid = false;
+    }
+    
+    
+    
+    // TODO(stylia): Examine this;
+    
     GlobalRunning = true;
     while(GlobalRunning)
     {
@@ -542,6 +660,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         }
         
         engine_input EngineInput = {};
+        EngineInput.dtForFrame = TargetSecondsPerFrame;
+        
         MSG Message;
         while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
         {
@@ -729,11 +849,21 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 Win32RecordInput(&WinState.ReplayStream, &EngineInput);
             }
             
-            if(EngineCode.EngineOutputSound)
+            
+            if(EngineCode.EngineOutputSound && WinSound.IsValid)
             {
-                engine_sound EngineSound = {};
+                DWORD PlayCursor = 0;
+                DWORD WriteCursor = 0;
                 
-                EngineCode.EngineOutputSound(&EngineState, &EngineSound);
+                int32 SoundError = GlobalSoundBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor);
+                
+                void *Region1 = 0;
+                void *Region2 = 0;
+                
+                uint32 Region1Size = 0;
+                uint32 Region2Size = 0;;
+                
+                
             }
             
             if(EngineCode.EngineUpdateAndRender)
@@ -770,6 +900,33 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         
         OutputDebugString(FPSBuffer);
 #endif
+    }
+    
+    if(WinState.Memory)
+    {
+        if(!VirtualFree(WinState.Memory, 0, MEM_RELEASE))
+        {
+            OutputDebugString("Exit: Memory allocated could not be freed.\n");
+            return(-1);
+        }
+    }
+    
+    if(GlobalImageBuffer.Pixels)
+    {
+        if(!VirtualFree(GlobalImageBuffer.Pixels, 0, MEM_RELEASE))
+        {
+            OutputDebugString("Exit: Memory allocated for image buffer could not be freed.\n");
+            return(-1);
+        }
+    }
+    
+    if(WinSound.Samples)
+    {
+        if(!VirtualFree(WinSound.Samples, 0, MEM_RELEASE))
+        {
+            OutputDebugString("Exit: Memory allocated for sound buffer could not be freed.\n");
+            return(-1);
+        }
     }
     
     timeEndPeriod(MSTimerGranularity);

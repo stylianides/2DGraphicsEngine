@@ -96,13 +96,17 @@ struct engine_input_controller
 // TODO(stylia): Place keyboard is on the ControllersArray
 struct engine_input
 {
+    real32 dtForFrame;
+    
     engine_input_controller Keyboard;
     engine_input_controller Controllers[MAX_PLAYERS];
 };
 
 struct engine_sound
 {
-    
+    // NOTE(stylia): Debug sin wave Hz
+    int32 Hz;
+    void *Samples;
 };
 
 struct engine_image
