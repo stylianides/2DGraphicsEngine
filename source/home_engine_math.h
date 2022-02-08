@@ -196,4 +196,8 @@ struct rect2
     v2 Max;
 };
 
+
+
+
+
 #endif //HOMEMATH_H

@@ -1,6 +1,12 @@
 #ifndef HOME_PLATFORM_H
 #define HOME_PLATFORM_H
 
+#if __GNUG__
+#define GCC 
+#elif _MSC_VER
+#define MSVC
+#endif
+
 #define global static
 #define internal static
 #define local_persist static

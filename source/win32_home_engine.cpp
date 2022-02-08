@@ -598,7 +598,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     }
     
     GlobalTicksPerSecond = PerformanceCounter.QuadPart;
-    real32 TargetFPS = 30.0f;
+    real32 TargetFPS = 60.0f;
     real32 TargetSecondsPerFrame = 1.0f / TargetFPS;
     int64 TargetTicksPerFrame = int64(TargetSecondsPerFrame * GlobalTicksPerSecond);
     
@@ -759,7 +759,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     while(GlobalRunning)
     {
         int64 BeginFrameTS = Win32GetTimeStamp();
-        
+        // TODO(stylia): Load Pdb again?
         FILETIME DLLWriteTimeNow = Win32GetFileLastWriteTime(EngineCode.EngineDLLPath); 
         
         if(CompareFileTime(&DLLWriteTimeNow, &EngineCode.EngineDLL_LastWriteTime) == FILE_TIME_LATER)

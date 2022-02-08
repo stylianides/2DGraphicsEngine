@@ -1,45 +1,6 @@
+
 #include "home_engine.h"
-
-
-
-internal void
-DrawRectangleUnsafe(engine_image *Buffer, 
-                    real32 MinX, real32 MaxX,
-                    real32 MinY, real32 MaxY,
-                    uint32 Colour)
-{
-    for(uint32 Y = (uint32)MinY;
-        Y < MaxY;
-        ++Y)
-    {
-        uint32 *Row = (uint32 *)Buffer->Pixels + Buffer->Width*Y;
-        for(uint32 X = (uint32)MinX;
-            X < MaxX;
-            ++X)
-        {
-            uint32 *Pixel = Row + X;
-            *(Pixel) = Colour;
-        }
-    }
-}
-
-internal void 
-RenderColour(engine_image *Buffer, uint32 Colour)
-{
-    uint32 *Pixel = (uint32 *)Buffer->Pixels;
-    
-    for(uint32 Y = 0;
-        Y < Buffer->Height;
-        ++Y)
-    {
-        for(uint32 X = 0;
-            X < Buffer->Width;
-            ++X)
-        {
-            *(Pixel++) = Colour;
-        }
-    }
-}
+#include "home_render_group.cpp"
 
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
@@ -52,7 +13,7 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
     uint32 BytesWritten = 0;
     uint16 *Current = (uint16 *)Sound->Samples;
     
-    while(BytesWritten < Sound->SampleBufferSize)
+    /*while(BytesWritten < Sound->SampleBufferSize)
     {
         *Current++ = (int16)(sinf(State->tSin)*Volume); // NOTE(stylia): first channel
         *Current++ = (int16)(sinf(State->tSin)*Volume); // NOTE(stylia): second channel
@@ -64,7 +25,7 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
         {
             State->tSin -= 2.0f*Pi32;
         }
-    }
+    }*/
 }
 
 extern "C"
@@ -103,16 +64,10 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     int32 PlayerRadiusY = 20;
     
     // NOTE(stylia): Try the HotLoading by changing Colours!
-    RenderColour(Buffer, 0xFFFFFFFF);
+    ClearScreen(Buffer, V4(0.0f, 0.0f, 1.0f, 0));
+    DrawRectangleOutline(Buffer, V2(5.0f, 5.0f), V2(500.0f, 500.0f), 2,
+                         V4(0.0f, 0.0f, 0.0f, 0));
     
-    DrawRectangleUnsafe(Buffer, 
-                        State->P.x - PlayerRadiusX, State->P.x + PlayerRadiusY,
-                        State->P.y - PlayerRadiusY, State->P.y + PlayerRadiusY,
-                        0xFF00FF00);
-    
-    file_contents Test =  State->DEBUGPlatformReadFile("C:\\Work\\advent_of_code\\2015\\problem01\\part1.cpp");
-    State->DEBUGPlatformWriteFile("C:\\Work\\advent_of_code\\2015\\problem01\\part3.cpp", Test.Contents, Test.Size);
-    State->DEBUGPlatformFreeFile(Test);
     
     int a = 1;
 }
