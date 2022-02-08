@@ -53,5 +53,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     
     
     int a = 1;
+    
+    int testcode = 0;
 }
 

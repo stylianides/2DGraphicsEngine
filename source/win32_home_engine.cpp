@@ -292,6 +292,27 @@ internal void Win32LoadXInput()
     }
 }
 
+internal real32
+Win32InputProcessStickValue(int32 StickValueRaw)
+{
+    real32 Result = 0;
+    
+    if(StickValueRaw < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+    {
+        Result = StickValueRaw / -32768.0f;
+    }
+    else if(StickValueRaw > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+    {
+        Result = StickValueRaw / 32767.0f;
+    }
+    else
+    {
+        Result = 0.0f;
+    }
+    
+    return(Result);
+}
+
 internal void
 Win32InputProcessButton(engine_input_button *Button,  bool32 Pressed)
 {
@@ -606,13 +627,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     //               so the task scheduler can be more accurate
     //               waking up the app after it sleeps
     uint32 MSTimerGranularity = 1;
-    while(timeBeginPeriod(MSTimerGranularity) == TIMERR_NOCANDO)
+    bool32 IsSleepGranular = true;
+    
+    if(timeBeginPeriod(MSTimerGranularity) == TIMERR_NOCANDO)
     {
-        MSTimerGranularity++;
-        if(MSTimerGranularity == 10)
-        {
-            break;
-        }
+        IsSleepGranular = false;
     }
     
     WNDCLASSA WindowClass = {0};
@@ -759,7 +778,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     while(GlobalRunning)
     {
         int64 BeginFrameTS = Win32GetTimeStamp();
-        // TODO(stylia): Load Pdb again?
         FILETIME DLLWriteTimeNow = Win32GetFileLastWriteTime(EngineCode.EngineDLLPath); 
         
         if(CompareFileTime(&DLLWriteTimeNow, &EngineCode.EngineDLL_LastWriteTime) == FILE_TIME_LATER)
@@ -912,35 +930,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         Win32InputProcessButton(&Controller->Buttons.Power, RightShoulder);
                         Win32InputProcessButton(&Controller->Buttons.Start, Start);
                         
-                        // TODO(stylia): Stick Function
-                        real32 StickX = Gamepad->sThumbLX;
-                        real32 StickY = Gamepad->sThumbLY;
-                        
-                        if(StickX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                        {
-                            Controller->StickX = StickX / -32768.0f;
-                        }
-                        else if(StickX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                        {
-                            Controller->StickX = StickX / 32767.0f;
-                        }
-                        else
-                        {
-                            Controller->StickX = 0.0f;
-                        }
-                        
-                        if(StickY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                        {
-                            Controller->StickY = StickY / -32768.0f;
-                        }
-                        else if(StickY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                        {
-                            Controller->StickY = StickY / 32767.0f;
-                        }
-                        else
-                        {
-                            Controller->StickY = 0.0f;
-                        }
+                        Controller->StickX = Win32InputProcessStickValue(Gamepad->sThumbLX);
+                        Controller->StickY = Win32InputProcessStickValue(Gamepad->sThumbLY);
                         
                         Controller->IsAnalog = 
                         (Controller->StickX || Controller->StickY) ? true : false;
@@ -1044,17 +1035,35 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             
         }
         
+        real32 SecondsElapsed = Win32GetSecondsElapsed(BeginFrameTS, Win32GetTimeStamp());
+        
+        if(SecondsElapsed < TargetSecondsPerFrame)
+        {
+            if(IsSleepGranular)
+            {
+                int32 RemainingMS = int32(1000.f * (TargetSecondsPerFrame - SecondsElapsed));
+                if(RemainingMS > 0)
+                {
+                    Sleep(RemainingMS);
+                }
+            }
+            
+            SecondsElapsed = Win32GetSecondsElapsed(BeginFrameTS, Win32GetTimeStamp());
+            
+            while(SecondsElapsed < TargetSecondsPerFrame)
+            {
+                SecondsElapsed = Win32GetSecondsElapsed(BeginFrameTS, Win32GetTimeStamp());
+            }
+        }
+        else
+        {
+            // TODO(stylia): Missed Frame, log it
+            OutputDebugString("Missed Frame \n");
+        }
+        
         win32_window_dim WindowDim = Win32GetWindowDim(Window);
         Win32CopyImageBufferToDC(&GlobalImageBuffer, WindowDC, 
                                  WindowDim.Width, WindowDim.Height);
-        
-        real32 SecondsElapsed = Win32GetSecondsElapsed(BeginFrameTS, Win32GetTimeStamp());
-        while(SecondsElapsed < TargetSecondsPerFrame)
-        {
-            int32 RemainingMS = int32(1000.f * (TargetSecondsPerFrame - SecondsElapsed));
-            Sleep(RemainingMS);
-            SecondsElapsed = Win32GetSecondsElapsed(BeginFrameTS, Win32GetTimeStamp());
-        }
         
         real64 FPS = 1.0f / SecondsElapsed;
         
