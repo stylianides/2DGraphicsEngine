@@ -40,25 +40,8 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     
     // NOTE(stylia): This is bad code for testing save state and input loops
     
-    if(Input->Keyboard.Buttons.Right.Press)
-    {
-        State->P.x += 1;
-    }
     
-    if(Input->Keyboard.Buttons.Left.Press)
-    {
-        State->P.x -= 1;
-    }
     
-    if(Input->Keyboard.Buttons.Up.Press)
-    {
-        State->P.y -= 1;
-    }
-    
-    if(Input->Keyboard.Buttons.Down.Press)
-    {
-        State->P.y += 1;
-    }
     
     int32 PlayerRadiusX = 20;
     int32 PlayerRadiusY = 20;

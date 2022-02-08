@@ -773,7 +773,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         MSG Message;
         while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
         {
-            engine_input_controller *Keyboard = &EngineInput.Keyboard;
+            engine_input_controller *Keyboard = &EngineInput.Controllers[0];
             
             switch(Message.message)
             {
@@ -881,8 +881,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         {
             if(!WinState.ReplayStream.IsPlayingBack){
                 
-                for(uint32 ControllerIndex = 0;
-                    ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
+                for(uint32 ControllerIndex = 1;
+                    ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS) + 1;
                     ++ControllerIndex)
                 {
                     XINPUT_STATE ControllerState;

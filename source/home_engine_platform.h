@@ -104,8 +104,8 @@ struct engine_input
 {
     real32 dtForFrame;
     
-    engine_input_controller Keyboard;
-    engine_input_controller Controllers[MAX_PLAYERS];
+    // NOTE(stylia): Keyboard is always Controllers[0]
+    engine_input_controller Controllers[MAX_PLAYERS + 1];
 };
 
 struct engine_sound
