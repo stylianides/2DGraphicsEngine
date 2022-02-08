@@ -44,7 +44,27 @@ RenderColour(engine_image *Buffer, uint32 Colour)
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
 {
+    real32 SecondsPerFlip = 1.0f / Sound->Hz;
+    int32 SamplesPerFlip = (int32)(Sound->SamplesPerSecond * SecondsPerFlip);
     
+    uint16 Volume = 130;
+    
+    uint32 BytesWritten = 0;
+    uint16 *Current = (uint16 *)Sound->Samples;
+    
+    while(BytesWritten < Sound->SampleBufferSize)
+    {
+        *Current++ = (int16)(sinf(State->tSin)*Volume); // NOTE(stylia): first channel
+        *Current++ = (int16)(sinf(State->tSin)*Volume); // NOTE(stylia): second channel
+        
+        BytesWritten += 4;
+        
+        State->tSin += 2.0f*Pi32*(1.0f/(real32)Sound->Hz);
+        if(State->tSin > 2.0f*Pi32)
+        {
+            State->tSin -= 2.0f*Pi32;
+        }
+    }
 }
 
 extern "C"

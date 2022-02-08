@@ -45,12 +45,29 @@ struct win32_window_dim
 
 struct win32_sound
 {
+    LPDIRECTSOUND DS;
+    
     bool32 IsValid;
+    
+    // NOTE(stylia): DirectSound parameters
     int32 SamplesPerSecond;
     int16 Channels;
     int16 BitsPerSample;
     
-    void *Samples;
+    // NOTE(stylia): These are handy
+    int32 BytesPerSecond;
+    real32 SamplesPerByte;
+    int32 SamplesPerFrame;
+    int32 BytesPerSample;
+    int32 BlockAlign;
+    
+    real32 SynchronizationLenience;
+    
+    uint32 Win32SoundBufferSize;
+    LPDIRECTSOUNDBUFFER Win32SoundBuffer;
+    
+    uint32 SampleBufferSize;
+    void *SampleBuffer;
 };
 
 struct win32_image

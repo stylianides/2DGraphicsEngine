@@ -12,7 +12,7 @@
 #endif
 #define InvalidCodePath Assert(!"InvalidCodePath")
 
-#define Pi 3.1415926535
+#define Pi32 3.1415926535f
 
 #define BYTES_PER_PIXEL 4
 
@@ -104,8 +104,14 @@ struct engine_input
 
 struct engine_sound
 {
+    int32 SamplesPerSecond;
+    
     // NOTE(stylia): Debug sin wave Hz
-    int32 Hz;
+    real32 Hz;
+    
+    int32 Channels;
+    
+    uint32 SampleBufferSize;
     void *Samples;
 };
 
@@ -127,6 +133,8 @@ struct engine_state
     bool32 IsMemoryInitialized;
     
     v2 P;
+    
+    real32 tSin;
     
     debug_platform_read_file *DEBUGPlatformReadFile;
     debug_platform_write_file *DEBUGPlatformWriteFile;
