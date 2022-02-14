@@ -5,27 +5,31 @@
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
 {
-    real32 SecondsPerFlip = 1.0f / Sound->Hz;
-    int32 SamplesPerFlip = (int32)(Sound->SamplesPerSecond * SecondsPerFlip);
+#if 1
+    int16 ToneVolume = 4000;
     
-    uint16 Volume = 130;
+    real32 Period = 1.0f / (real32)(400);
+    real32 SamplesOverPeriod = Period * (real32)Sound->SamplesPerSecond;
+    real32 Interval = (2.0f*Pi32) / SamplesOverPeriod;
     
-    uint32 BytesWritten = 0;
-    uint16 *Current = (uint16 *)Sound->Samples;
+    int16 *Dest = (int16 *)Sound->SampleBuffer;
     
-    /*while(BytesWritten < Sound->SampleBufferSize)
+    for(int32 SampleIndex = 0;
+        SampleIndex < Sound->SampleCount;
+        SampleIndex++)
     {
-        *Current++ = (int16)(sinf(State->tSin)*Volume); // NOTE(stylia): first channel
-        *Current++ = (int16)(sinf(State->tSin)*Volume); // NOTE(stylia): second channel
+        real32 SinValue = sinf(State->tSin);
+        int16 SampleValue = (int16)(SinValue * ToneVolume);
+        *Dest++ = SampleValue;
+        *Dest++ = SampleValue;
         
-        BytesWritten += 4;
-        
-        State->tSin += 2.0f*Pi32*(1.0f/(real32)Sound->Hz);
-        if(State->tSin > 2.0f*Pi32)
+        State->tSin += Interval;
+        if(State->tSin > (2.0f * Pi32))
         {
-            State->tSin -= 2.0f*Pi32;
+            State->tSin = -2.0f*Pi32;
         }
-    }*/
+    }
+#endif
 }
 
 extern "C"

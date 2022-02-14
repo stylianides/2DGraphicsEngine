@@ -34,6 +34,8 @@
 #define Y_KEY 0x59 
 #define Z_KEY 0x5A 
 
+#define F4 0x73
+
 #define SPACE_KEY 0x20
 #define ESC_KEY 0x1B
 
@@ -43,31 +45,35 @@ struct win32_window_dim
     int32 Height;
 };
 
+struct win32_sound_buffer
+{
+    bool32 IsValid;
+    bool32 IsInitialized;
+    
+    int16 BytesPerSample;
+    int16 Channels;
+    int32 SamplesPerSecond;
+    
+    int16 BlockAlign;
+    
+    uint32 Size;
+    
+    int32 RunningSampleIndex;
+    
+    LPDIRECTSOUNDBUFFER DS;
+};
+
 struct win32_sound
 {
-    LPDIRECTSOUND DS;
-    
     bool32 IsValid;
     
-    // NOTE(stylia): DirectSound parameters
-    int32 SamplesPerSecond;
-    int16 Channels;
-    int16 BitsPerSample;
+    LPDIRECTSOUND DirectSound;
+    LPDIRECTSOUNDBUFFER PrimaryBuffer;
     
-    // NOTE(stylia): These are handy
-    int32 BytesPerSecond;
-    real32 SamplesPerByte;
-    int32 SamplesPerFrame;
-    int32 BytesPerSample;
-    int32 BlockAlign;
+    win32_sound_buffer SecondaryBuffer;
     
-    real32 SynchronizationLenience;
-    
-    uint32 Win32SoundBufferSize;
-    LPDIRECTSOUNDBUFFER Win32SoundBuffer;
-    
-    uint32 SampleBufferSize;
-    void *SampleBuffer;
+    void *Samples;
+    uint32 SizeOfSamples;
 };
 
 struct win32_image

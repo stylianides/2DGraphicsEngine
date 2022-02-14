@@ -1,6 +1,6 @@
 @echo off
 
-set CompilerFlags=-EHa- -FC  -GR- -nologo -Od -Oi -Z7 -Fm
+set CompilerFlags=-EHa- -FC  -GR- -nologo -Od -Zi -Fm
 set WarningFlags=-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505
 set LinkerFlags=-opt:ref -incremental:no
 set ProgramFlags=-DSLOW_BUILD -DDEBUG
@@ -21,8 +21,7 @@ REM -FC     Full paths for error jumping
 REM -Fm     Create map file with name HomeEngine
 REM -GR-    Disables Runtime information
 REM -nologo Microsoft logo is not displayed
-REM -Oi     Enables intrinsic compiler optimizations
-REM -Od     Disables Optimizations for compile times
+REM -Od     Disables Optimizations
 REM -WX     Treat all warnings as errors
 REM -W4     Warning Level 4
 REM -Z7     Complete Debugging Info, 7.0 Compatible
