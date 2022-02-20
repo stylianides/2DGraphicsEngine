@@ -104,8 +104,10 @@ struct win32_engine_code
 struct win32_replay_stream
 {
     HANDLE RecordFile;
+    HANDLE MemoryFile;
     
-    char Filename[MAX_PATH];
+    char RecordFilename[MAX_PATH];
+    char MemoryFilename[MAX_PATH];
     
     bool32 IsRecording;
     bool32 IsPlayingBack;

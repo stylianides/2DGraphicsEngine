@@ -36,6 +36,7 @@
 *.4coder
 *.rdbg
 *.hei
+*.mem
 
 /build
 /debug

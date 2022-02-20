@@ -46,6 +46,8 @@ DEBUG_PLATFORM_READ_FILE(Win32DEBUGReadFile)
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
+        
+        // TODO(stylia): Handle file size high
         DWORD FileSizeHigh = 0;
         DWORD FileSizeLow = GetFileSize(FileHandle, &FileSizeHigh);
         Assert((FileSizeHigh == 0) && FileSizeLow > 0);
@@ -173,12 +175,29 @@ Win32ReloadEngineDLL(win32_engine_code *EngineCode)
     }
 }
 
+
 internal void
-Win32StartRecording(win32_replay_stream *ReplayStream)
+Win32StartRecording(win32_state *WinState)
 {
-    DeleteFile(ReplayStream->Filename);
+    win32_replay_stream *ReplayStream = &WinState->ReplayStream;
+    
+    DeleteFile(ReplayStream->RecordFilename);
+    DeleteFile(ReplayStream->MemoryFilename);
+    
+    ReplayStream->MemoryFile = CreateFileA(ReplayStream->MemoryFilename, GENERIC_READ|GENERIC_WRITE, 
+                                           0, 0, OPEN_ALWAYS, 0, 0);
+    
+    Assert(ReplayStream->MemoryFile);
+    
+    DWORD BytesWritten = 0;
+    DWORD MemorySize = (DWORD)(WinState->PermanentMemorySize + WinState->TransientMemorySize);
+    WriteFile(ReplayStream->MemoryFile, WinState->Memory, MemorySize, &BytesWritten, 0);
+    Assert(MemorySize == BytesWritten);
+    
+    CloseHandle(ReplayStream->MemoryFile);
     
     ReplayStream->IsRecording = true;
+    ReplayStream->IsPlayingBack = false;
     ReplayStream->RecordingIndex = 0;
 }
 
@@ -187,7 +206,8 @@ Win32RecordInput(win32_replay_stream *ReplayStream, engine_input *Input)
 {
     DWORD BytesWritten = 0;
     
-    ReplayStream->RecordFile = CreateFileA(ReplayStream->Filename, GENERIC_READ|GENERIC_WRITE, 0, 0, OPEN_ALWAYS, 0, 0);
+    ReplayStream->RecordFile = CreateFileA(ReplayStream->RecordFilename, GENERIC_READ|GENERIC_WRITE, 
+                                           0, 0, OPEN_ALWAYS, 0, 0);
     
     Assert(ReplayStream->RecordFile);
     DWORD Error = SetFilePointer(ReplayStream->RecordFile, 0, 0, FILE_END);
@@ -215,30 +235,40 @@ internal void
 Win32StartPlayback(win32_replay_stream *ReplayStream)
 {
     ReplayStream->IsPlayingBack = true;
+    ReplayStream->IsRecording = false;
     ReplayStream->PlayingIndex = 0;
 }
 
 internal engine_input
-Win32GetPlayBackInput(win32_replay_stream *ReplayStream)
+Win32GetPlayBackInput(win32_state *WinState)
 {
+    win32_replay_stream *ReplayStream = &WinState->ReplayStream;
+    DWORD BytesRead = 0;
+    DWORD Error;
+    
+    if(ReplayStream->PlayingIndex == 0)
+    {
+        DWORD MemorySize = (DWORD)(WinState->PermanentMemorySize + WinState->TransientMemorySize);
+        
+        ReplayStream->MemoryFile = CreateFileA(ReplayStream->MemoryFilename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+        Error = ReadFile(ReplayStream->MemoryFile, WinState->Memory, MemorySize, &BytesRead, 0);
+        Assert(BytesRead == MemorySize);
+        Assert(Error);
+    }
+    
+    
     engine_input Result = {};
     
     if(ReplayStream->IsPlayingBack)
     {
-        DWORD BytesRead = 0;
+        BytesRead = 0;
         
-        HANDLE FileHandle = CreateFileA(ReplayStream->Filename, GENERIC_READ, FILE_SHARE_READ, 
+        HANDLE FileHandle = CreateFileA(ReplayStream->RecordFilename, GENERIC_READ, FILE_SHARE_READ, 
                                         0, OPEN_EXISTING, 0, 0);
         
-        
-        if(ReplayStream->PlayingIndex == ReplayStream->RecordingIndex)
-        {
-            ReplayStream->PlayingIndex = 0;
-        }
-        
-        DWORD Error = SetFilePointer(FileHandle, 
-                                     sizeof(engine_input)*ReplayStream->PlayingIndex, 
-                                     0, FILE_BEGIN);
+        Error = SetFilePointer(FileHandle, 
+                               sizeof(engine_input)*ReplayStream->PlayingIndex, 
+                               0, FILE_BEGIN);
         Assert(Error != INVALID_SET_FILE_POINTER);
         
         Error = ReadFile(FileHandle, &Result, 
@@ -248,6 +278,11 @@ Win32GetPlayBackInput(win32_replay_stream *ReplayStream)
         Assert(BytesRead == sizeof(engine_input));
         
         ReplayStream->PlayingIndex++;
+        
+        if(ReplayStream->PlayingIndex == ReplayStream->RecordingIndex)
+        {
+            ReplayStream->PlayingIndex = 0;
+        }
         
         CloseHandle(FileHandle);
     }
@@ -738,7 +773,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     }
     
     // TODO(stylia): Multiple replay streams and memory maps
-    Win32ConcatString(WinState.ReplayStream.Filename, MAX_PATH, ".\\home_engine_1.hei");
+    Win32ConcatString(WinState.ReplayStream.RecordFilename, MAX_PATH, ".\\home_engine_1.hei");
+    Win32ConcatString(WinState.ReplayStream.MemoryFilename, MAX_PATH, ".\\home_engine.mem");
     
     int16 Channels = 2;
     int32 SamplesPerSecond = 48000;
@@ -784,10 +820,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
-    engine_state EngineState = {};
-    EngineState.DEBUGPlatformReadFile = Win32DEBUGReadFile;
-    EngineState.DEBUGPlatformWriteFile = Win32DEBUGWriteFile;
-    EngineState.DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
+    engine_state *EngineState = (engine_state *)WinState.Memory;
+    EngineState->DEBUGPlatformReadFile = Win32DEBUGReadFile;
+    EngineState->DEBUGPlatformWriteFile = Win32DEBUGWriteFile;
+    EngineState->DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
     
     // NOTE(stylia): Game Loop
     GlobalRunning = true;
@@ -866,7 +902,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         {
                             GlobalPause = (GlobalPause) ? false : true;
                         }break;
-                        
+                        // TODO(stylia): make it so this is first keyboard input after it
                         case L_KEY:
                         {
                             if(IsDown)
@@ -875,7 +911,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                                 {
                                     if(!WinState.ReplayStream.IsRecording)
                                     {
-                                        Win32StartRecording(&WinState.ReplayStream);
+                                        Win32StartRecording(&WinState);
                                     }
                                     else
                                     {
@@ -962,7 +998,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             }
             else
             {
-                EngineInput = Win32GetPlayBackInput(&WinState.ReplayStream);
+                EngineInput = Win32GetPlayBackInput(&WinState);
             }
             
             if(WinState.ReplayStream.IsRecording)
@@ -970,10 +1006,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 Win32RecordInput(&WinState.ReplayStream, &EngineInput);
             }
             
-            
             if(EngineCode.EngineOutputSound && SoundBuffer->IsValid)
             {
                 real32 AudioSecondsElapsed = Win32GetSecondsElapsed(BeginFrameTS, Win32GetTimeStamp());
+                
+                real32 FrameFlipSecondsRemaining = TargetSecondsPerFrame - AudioSecondsElapsed;
                 
                 DWORD WriteCursor;
                 DWORD PlayCursor;
@@ -986,7 +1023,34 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         SoundBuffer->IsInitialized = true;
                     }
                     
+                    DWORD PlayCursorAtFrameFlip = PlayCursor + DWORD(FrameFlipSecondsRemaining * 
+                                                                     SamplesPerSecond * BlockAlign);
+                    
+                    bool32 AudioCanSynchronizeWithFrameFlip;
+                    
+                    if(WriteCursor > PlayCursor){
+                        AudioCanSynchronizeWithFrameFlip = (WriteCursor < PlayCursorAtFrameFlip);
+                    }
+                    else
+                    {
+                        AudioCanSynchronizeWithFrameFlip = 
+                        ((WriteCursor + SoundBuffer->Size) < PlayCursorAtFrameFlip);
+                    }
+#if 0
+                    DWORD ByteToLock;
+                    
+                    if(AudioCanSynchronizeWithFrameFlip)
+                    {
+                        ByteToLock = PlayCursorAtFrameFlip;
+                    }
+                    else
+                    {
+                        ByteToLock = (SoundBuffer->RunningSampleIndex * SoundBuffer->BlockAlign) % SoundBuffer->Size;
+                    }
+                    
+#else
                     DWORD ByteToLock = (SoundBuffer->RunningSampleIndex * SoundBuffer->BlockAlign) % SoundBuffer->Size;
+#endif
                     
                     DWORD LockSize = 0;
                     if(ByteToLock > PlayCursor)
@@ -999,8 +1063,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                     }
                     else
                     {
-                        LockSize = 0;
+                        // TODO(stylia): See why this is triggered when hotloading
+                        //InvalidCodePath;
                     }
+                    
                     
                     engine_sound EngineSound = {};
                     EngineSound.Hz = 440;
@@ -1010,7 +1076,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                     EngineSound.SampleCount = LockSize / SoundBuffer->BlockAlign;
                     EngineSound.SampleSize = BlockAlign;
                     
-                    EngineCode.EngineOutputSound(&EngineState, &EngineSound);
+                    EngineCode.EngineOutputSound(EngineState, &EngineSound);
                     
                     Win32CopySoundSamples(WinSound.Samples, WinSound.SizeOfSamples, 
                                           SoundBuffer, ByteToLock, LockSize);
@@ -1026,7 +1092,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 EngineImageBuffer.Pitch = BYTES_PER_PIXEL*EngineImageBuffer.Width;
                 EngineImageBuffer.Pixels = GlobalImageBuffer.Pixels;
                 
-                EngineCode.EngineUpdateAndRender(&EngineState, &EngineInput, &EngineImageBuffer);
+                EngineCode.EngineUpdateAndRender(EngineState, &EngineInput, &EngineImageBuffer);
             }
             
         }

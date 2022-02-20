@@ -11,12 +11,16 @@
 #define internal static
 #define local_persist static
 
+#define ArrayCount(Array) (sizeof((Array)) / sizeof((Array)[0]))
+
 #if SLOW_BUILD
 #define Assert(Expr) if(!(Expr)){*(int *)0 = 0;}
 #else
 #define Assert(Expr)
 #endif
+
 #define InvalidCodePath Assert(!"InvalidCodePath")
+
 
 #define Pi32 3.1415926535f
 
@@ -99,7 +103,6 @@ struct engine_input_controller
     }Buttons;
 };
 
-// TODO(stylia): Place keyboard is on the ControllersArray
 struct engine_input
 {
     real32 dt;
@@ -141,6 +144,9 @@ struct engine_state
     bool32 IsMemoryInitialized;
     
     v2 P;
+    v2 PDim;
+    
+    v4 BackDrop;
     
     real32 tSin;
     

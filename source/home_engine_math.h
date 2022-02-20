@@ -97,6 +97,24 @@ inline v2 V2i(uint32 X, uint32 Y)
     return(Result);
 }
 
+inline v2 operator+(v2 A, v2 B)
+{
+    v2 Result;
+    
+    Result.x = A.x + B.x;
+    Result.y = A.y + B.y;
+    
+    return(Result);
+}
+
+inline v2 &operator+=(v2 &A, v2 B)
+{
+    A.x += B.x;
+    A.y += B.y;
+    
+    return(A);
+}
+
 inline v3 V3(real32 X, real32 Y, real32 Z)
 {
     v3 Result = {};
@@ -165,6 +183,16 @@ inline v4 V4i(uint32 X, uint32 Y, uint32 Z, uint32 W)
     Result.w = (real32)W;
     
     return(Result);
+}
+
+inline v4 &operator+=(v4 &A, v4 B)
+{
+    A.x += B.x;
+    A.y += B.y;
+    A.z += B.z;
+    A.w += B.w;
+    
+    return(A);
 }
 
 inline real32 Inner(v2 A, v2 B)
