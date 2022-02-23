@@ -144,6 +144,9 @@ struct engine_state
     bool32 IsMemoryInitialized;
     
     v2 P;
+    v2 dP;
+    v2 ddP;
+    
     v2 PDim;
     
     v4 BackDrop;

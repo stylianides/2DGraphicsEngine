@@ -196,8 +196,12 @@ Win32StartRecording(win32_state *WinState)
     
     CloseHandle(ReplayStream->MemoryFile);
     
+    ReplayStream->RecordFile = CreateFileA(ReplayStream->RecordFilename, GENERIC_READ|GENERIC_WRITE, 
+                                           0, 0, OPEN_ALWAYS, 0, 0);
+    
+    Assert(ReplayStream->RecordFile);
+    
     ReplayStream->IsRecording = true;
-    ReplayStream->IsPlayingBack = false;
     ReplayStream->RecordingIndex = 0;
 }
 
@@ -206,75 +210,74 @@ Win32RecordInput(win32_replay_stream *ReplayStream, engine_input *Input)
 {
     DWORD BytesWritten = 0;
     
-    ReplayStream->RecordFile = CreateFileA(ReplayStream->RecordFilename, GENERIC_READ|GENERIC_WRITE, 
-                                           0, 0, OPEN_ALWAYS, 0, 0);
-    
-    Assert(ReplayStream->RecordFile);
+#if 0
     DWORD Error = SetFilePointer(ReplayStream->RecordFile, 0, 0, FILE_END);
     Assert(Error != INVALID_SET_FILE_POINTER);
+#endif
     
-    Error = WriteFile(ReplayStream->RecordFile, Input, sizeof(engine_input), &BytesWritten, 0);
+    WriteFile(ReplayStream->RecordFile, Input, sizeof(engine_input), &BytesWritten, 0);
     Assert(sizeof(engine_input) == BytesWritten);
     
-    if(Error)
-    {
-        ReplayStream->RecordingIndex++;
-    }
-    
-    CloseHandle(ReplayStream->RecordFile);
+    ReplayStream->RecordingIndex++;
 }
 
 internal void
 Win32StopRecording(win32_replay_stream *ReplayStream)
 {
-    ReplayStream->IsRecording = false;
     CloseHandle(ReplayStream->RecordFile);
+    ReplayStream->IsRecording = false;
 }
 
 internal void
 Win32StartPlayback(win32_replay_stream *ReplayStream)
 {
-    ReplayStream->IsPlayingBack = true;
-    ReplayStream->IsRecording = false;
+    ReplayStream->MemoryFile = CreateFileA(ReplayStream->MemoryFilename, GENERIC_READ, FILE_SHARE_READ, 
+                                           0, OPEN_EXISTING, 0, 0);
+    
+    ReplayStream->RecordFile = 
+        CreateFileA(ReplayStream->RecordFilename, GENERIC_READ, FILE_SHARE_READ, 
+                    0, OPEN_EXISTING, 0, 0);
+    
+    Assert(ReplayStream->MemoryFile);
+    Assert(ReplayStream->RecordFile);
+    
     ReplayStream->PlayingIndex = 0;
+    ReplayStream->IsPlayingBack = true;
 }
 
 internal engine_input
 Win32GetPlayBackInput(win32_state *WinState)
 {
-    win32_replay_stream *ReplayStream = &WinState->ReplayStream;
-    DWORD BytesRead = 0;
-    DWORD Error;
-    
-    if(ReplayStream->PlayingIndex == 0)
-    {
-        DWORD MemorySize = (DWORD)(WinState->PermanentMemorySize + WinState->TransientMemorySize);
-        
-        ReplayStream->MemoryFile = CreateFileA(ReplayStream->MemoryFilename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-        Error = ReadFile(ReplayStream->MemoryFile, WinState->Memory, MemorySize, &BytesRead, 0);
-        Assert(BytesRead == MemorySize);
-        Assert(Error);
-    }
-    
-    
     engine_input Result = {};
+    win32_replay_stream *ReplayStream = &WinState->ReplayStream;
     
     if(ReplayStream->IsPlayingBack)
     {
-        BytesRead = 0;
         
-        HANDLE FileHandle = CreateFileA(ReplayStream->RecordFilename, GENERIC_READ, FILE_SHARE_READ, 
-                                        0, OPEN_EXISTING, 0, 0);
+        DWORD BytesRead = 0;
+        DWORD Error;
         
-        Error = SetFilePointer(FileHandle, 
+        if(ReplayStream->PlayingIndex == 0)
+        {
+            DWORD MemorySize = (DWORD)(WinState->PermanentMemorySize + WinState->TransientMemorySize);
+            
+            Error = SetFilePointer(ReplayStream->MemoryFile, 0, 0, FILE_BEGIN);
+            Assert(Error != INVALID_SET_FILE_POINTER);
+            
+            ReadFile(ReplayStream->MemoryFile, WinState->Memory, MemorySize, &BytesRead, 0);
+            Assert(BytesRead == MemorySize);
+        }
+        
+        
+        Error = SetFilePointer(ReplayStream->RecordFile, 
                                sizeof(engine_input)*ReplayStream->PlayingIndex, 
                                0, FILE_BEGIN);
         Assert(Error != INVALID_SET_FILE_POINTER);
         
-        Error = ReadFile(FileHandle, &Result, 
+        BytesRead = 0;
+        Error = ReadFile(ReplayStream->RecordFile, &Result, 
                          sizeof(engine_input), &BytesRead, 0);
         
-        Assert(Error);
         Assert(BytesRead == sizeof(engine_input));
         
         ReplayStream->PlayingIndex++;
@@ -283,16 +286,21 @@ Win32GetPlayBackInput(win32_state *WinState)
         {
             ReplayStream->PlayingIndex = 0;
         }
-        
-        CloseHandle(FileHandle);
     }
     
     return(Result);
 }
 
+// TODO(stylia): Maybe put a playback button seperately 
+//               so after recording ends you play back whenever you want
+//               If i opt in on this, then deleting files here is no good.
 internal void
 Win32StopPlayback(win32_replay_stream *ReplayStream)
 {
+    CloseHandle(ReplayStream->MemoryFile);
+    CloseHandle(ReplayStream->RecordFile);
+    DeleteFile(ReplayStream->MemoryFilename);
+    DeleteFile(ReplayStream->RecordFilename);
     ReplayStream->IsPlayingBack = false;
 }
 
@@ -759,8 +767,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     win32_state WinState = {};
     // TODO(stylia): Think about minimum requirments
+    //               I will keep increasing this if needed
     WinState.PermanentMemorySize = MegaBytes(100);
-    WinState.TransientMemorySize = GigaBytes(1);
+    WinState.TransientMemorySize = MegaBytes(300);
     
     WinState.Memory = VirtualAlloc(0, WinState.PermanentMemorySize + 
                                    WinState.TransientMemorySize
