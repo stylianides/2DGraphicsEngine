@@ -2,6 +2,10 @@
 #include "home_engine.h"
 #include "home_render_group.cpp"
 
+
+
+
+
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
 {
@@ -32,9 +36,19 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
 #endif
 }
 
+#if DEBUG
+engine_state *DebugMemory;
+#endif
+
 extern "C"
 ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
 {
+#if DEBUG
+    DebugMemory = State;
+#endif
+    
+    BEGIN_TIME_BLOCK(Sections_UpdateAndRender);
+    
     if(!State->IsMemoryInitialized)
     {
         State->P = V2(40.0f, 40.0f);
@@ -87,7 +101,6 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     DrawRectangle(Buffer, State->P, State->P + State->PDim, V4(0.5f, 0.5f, 0.5f, 0.5));
     
     
-    
-    int testcode = 0;
+    END_TIME_BLOCK(Sections_UpdateAndRender);
 }
 

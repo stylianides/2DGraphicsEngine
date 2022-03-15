@@ -115,6 +115,32 @@ internal FILETIME Win32GetFileLastWriteTime(char *Filename)
 }
 
 internal void
+Win32HandleDebug(engine_state *State)
+{
+#if DEBUG
+    OutputDebugString("DEBUG:\n");
+    ClockTimer *Timers = State->Timers;
+    
+    for(uint32 Index = 0;
+        Index < ArrayCount(State->Timers);
+        ++Index)
+    {
+        ClockTimer *CurrentTimer = Timers + Index;
+        
+        if(CurrentTimer->HitCount)
+        {
+            char CodeSectionText[256];
+            snprintf(CodeSectionText, 256, "Section %d: Total Cycles:%llu, Total Hits: %lu, AvgCycle %f \n", Index, CurrentTimer->Cycles, CurrentTimer->HitCount, (real32)CurrentTimer->Cycles/(real32)CurrentTimer->HitCount);
+            OutputDebugString(CodeSectionText);
+            
+            CurrentTimer->Cycles = 0;
+            CurrentTimer->HitCount = 0;
+        }
+    }
+#endif
+}
+
+internal void
 Win32ConcatString(char *Dest, uint32 DestSize, char *Str)
 {
     while((*Str) && (DestSize > 0))
@@ -1101,7 +1127,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 EngineImageBuffer.Pitch = BYTES_PER_PIXEL*EngineImageBuffer.Width;
                 EngineImageBuffer.Pixels = GlobalImageBuffer.Pixels;
                 
-                EngineCode.EngineUpdateAndRender(EngineState, &EngineInput, &EngineImageBuffer);
+                EngineCode.EngineUpdateAndRender(EngineState, 
+                                                 &EngineInput, 
+                                                 &EngineImageBuffer);
+                
+                Win32HandleDebug(EngineState);
             }
             
         }

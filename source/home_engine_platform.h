@@ -57,6 +57,35 @@ typedef double real64;
 
 typedef size_t mem_index;
 
+
+enum CodeSections
+{
+    Sections_UpdateAndRender,
+    Sections_Size,
+};
+
+#if DEBUG
+#include <intrin.h>
+
+struct ClockTimer
+{
+    uint64 Cycles;
+    uint32 HitCount;
+};
+
+#ifdef MSVC
+#define BEGIN_TIME_BLOCK(ID) uint64 Start##ID = __rdtsc();
+#define END_TIME_BLOCK(ID) DebugMemory->Timers[ID].Cycles += __rdtsc() - Start##ID; ++DebugMemory->Timers[ID].HitCount;
+#endif
+
+#else
+
+#define BEGIN_TIME_BLOCK
+#define END_TIME_BLOCK
+
+#endif
+
+
 struct file_contents
 {
     void *Contents;
@@ -156,8 +185,11 @@ struct engine_state
     debug_platform_read_file *DEBUGPlatformReadFile;
     debug_platform_write_file *DEBUGPlatformWriteFile;
     debug_platform_free_file *DEBUGPlatformFreeFile;
+    
+#if DEBUG
+    ClockTimer Timers[Sections_Size];
+#endif
 };
-
 
 #define ENGINE_UPDATE_AND_RENDER(Name) void Name(engine_state *State, engine_input *Input, engine_image *Buffer)
 typedef ENGINE_UPDATE_AND_RENDER(engine_update_and_render);

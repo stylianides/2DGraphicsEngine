@@ -6,6 +6,12 @@
 #include "home_engine_platform.h"
 
 
+enum
+{
+    TIME_FUNCTION1,
+    TIME_FUNCTION2,
+    TIME_FUNCTION3,
+};
 
 struct mem_arena
 {
