@@ -98,7 +98,8 @@ DEBUG_PLATFORM_FREE_FILE(Win32DEBUGFreeFile)
     Assert(Error);
 }
 
-internal FILETIME Win32GetFileLastWriteTime(char *Filename)
+internal 
+FILETIME Win32GetFileLastWriteTime(char *Filename)
 {
     FILETIME Result = {};
     
@@ -115,14 +116,14 @@ internal FILETIME Win32GetFileLastWriteTime(char *Filename)
 }
 
 internal void
-Win32HandleDebug(engine_state *State)
+Win32HandleDebug(engine_memory *Memory)
 {
 #if DEBUG
     OutputDebugString("DEBUG:\n");
-    ClockTimer *Timers = State->Timers;
+    ClockTimer *Timers = Memory->Timers;
     
     for(uint32 Index = 0;
-        Index < ArrayCount(State->Timers);
+        Index < ArrayCount(Memory->Timers);
         ++Index)
     {
         ClockTimer *CurrentTimer = Timers + Index;
@@ -201,6 +202,21 @@ Win32ReloadEngineDLL(win32_engine_code *EngineCode)
     }
 }
 
+// TODO(stylia): Find a better way than this
+internal void *
+Win32InitializeMemory(memory_index PermanentMemorySize, 
+                      memory_index TransientMemorySize)
+{
+    memory_index TotalSize = PermanentMemorySize + TransientMemorySize;
+    void *Result = VirtualAlloc(0, TotalSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    
+    for(uint32 Byte = 0; Byte < TotalSize; ++Byte)
+    {
+        *((uint8*)Result + Byte) = 0;
+    }
+    
+    return(Result);
+}
 
 internal void
 Win32StartRecording(win32_state *WinState)
@@ -445,7 +461,7 @@ Win32ResizeImageBuffer(win32_image *Buffer, uint32 Width, uint32 Height)
     Buffer->BmpInfo.bmiHeader.biSize = sizeof(Buffer->BmpInfo.bmiHeader);
     Buffer->Pitch = Width*BYTES_PER_PIXEL;
     
-    mem_index BmpSize = BYTES_PER_PIXEL*Width*Height;
+    memory_index BmpSize = BYTES_PER_PIXEL*Width*Height;
     
     Buffer->Pixels = VirtualAlloc(0, BmpSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     Assert(Buffer->Pixels);
@@ -796,14 +812,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     //               I will keep increasing this if needed
     WinState.PermanentMemorySize = MegaBytes(100);
     WinState.TransientMemorySize = MegaBytes(300);
-    
-    WinState.Memory = VirtualAlloc(0, WinState.PermanentMemorySize + 
-                                   WinState.TransientMemorySize
-                                   , MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    WinState.Memory = Win32InitializeMemory(WinState.PermanentMemorySize, WinState.TransientMemorySize);
     
     if(!WinState.Memory)
     {
-        OutputDebugString("Could not initialize program memory \n");
+        OutputDebugString("Could not initialize program memory\n");
         return(-1);
     }
     
@@ -855,10 +868,12 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         return(-1);
     }
     
-    engine_state *EngineState = (engine_state *)WinState.Memory;
-    EngineState->DEBUGPlatformReadFile = Win32DEBUGReadFile;
-    EngineState->DEBUGPlatformWriteFile = Win32DEBUGWriteFile;
-    EngineState->DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
+    engine_memory *EngineMemory = (engine_memory *)WinState.Memory;
+    EngineMemory->PermanentMemorySize = WinState.PermanentMemorySize;
+    EngineMemory->TransientMemorySize = WinState.TransientMemorySize;
+    EngineMemory->DEBUGPlatformReadFile = Win32DEBUGReadFile;
+    EngineMemory->DEBUGPlatformWriteFile = Win32DEBUGWriteFile;
+    EngineMemory->DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
     
     // NOTE(stylia): Game Loop
     GlobalRunning = true;
@@ -988,15 +1003,15 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         {
             if(!WinState.ReplayStream.IsPlayingBack){
                 
-                for(uint32 ControllerIndex = 1;
-                    ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS) + 1;
+                for(uint32 ControllerIndex = 0;
+                    ControllerIndex < Min(MAX_PLAYERS, MAX_CONTROLLERS);
                     ++ControllerIndex)
                 {
                     XINPUT_STATE ControllerState;
                     
                     if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
                     {
-                        EngineInput.Controllers[ControllerIndex].IsConnected = true;
+                        EngineInput.Controllers[ControllerIndex + 1].IsConnected = true;
                         
                         XINPUT_GAMEPAD *Gamepad = &ControllerState.Gamepad;
                         
@@ -1009,7 +1024,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                         bool32 RightShoulder = Gamepad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
                         bool32 Start = Gamepad->wButtons & XINPUT_GAMEPAD_START;
                         
-                        engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex];
+                        engine_input_controller *Controller = &EngineInput.Controllers[ControllerIndex + 1];
                         Win32InputProcessButton(&Controller->Buttons.Up, Up);
                         Win32InputProcessButton(&Controller->Buttons.Down, Down);
                         Win32InputProcessButton(&Controller->Buttons.Left, Left);
@@ -1027,7 +1042,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                     }
                     else
                     {
-                        EngineInput.Controllers[ControllerIndex].IsConnected = false;
+                        EngineInput.Controllers[ControllerIndex + 1].IsConnected = false;
                     }
                 }
             }
@@ -1111,7 +1126,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                     EngineSound.SampleCount = LockSize / SoundBuffer->BlockAlign;
                     EngineSound.SampleSize = BlockAlign;
                     
-                    EngineCode.EngineOutputSound(EngineState, &EngineSound);
+                    EngineCode.EngineOutputSound(EngineMemory, &EngineSound);
                     
                     Win32CopySoundSamples(WinSound.Samples, WinSound.SizeOfSamples, 
                                           SoundBuffer, ByteToLock, LockSize);
@@ -1127,11 +1142,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
                 EngineImageBuffer.Pitch = BYTES_PER_PIXEL*EngineImageBuffer.Width;
                 EngineImageBuffer.Pixels = GlobalImageBuffer.Pixels;
                 
-                EngineCode.EngineUpdateAndRender(EngineState, 
+                EngineCode.EngineUpdateAndRender(EngineMemory, 
                                                  &EngineInput, 
                                                  &EngineImageBuffer);
                 
-                Win32HandleDebug(EngineState);
+                Win32HandleDebug(EngineMemory);
             }
             
         }

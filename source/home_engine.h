@@ -5,34 +5,26 @@
 
 #include "home_engine_platform.h"
 
-
-enum
+struct memory_arena
 {
-    TIME_FUNCTION1,
-    TIME_FUNCTION2,
-    TIME_FUNCTION3,
-};
-
-struct mem_arena
-{
-    mem_index Size;
-    mem_index Used;
+    memory_index Size;
+    memory_index Used;
     uint8 *Base;
 };
 
 internal void
-InitializeArena(mem_arena *Arena, mem_index Size)
+InitializeArena(memory_arena *Arena, memory_index Size, uint8 *Base)
 {
     Arena->Size = Size;
     Arena->Used = 0;
-    Arena->Base = 0;
+    Arena->Base = Base;
     Assert(Arena->Base);
 }
 
 #define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type))
 #define PushArray(Arena, type, Amount) (type *)PushSize_(Arena, Amount*sizeof(type))
 
-internal void *PushSize_(mem_arena *Arena, mem_index Size)
+internal void *PushSize_(memory_arena *Arena, memory_index Size)
 {
     Assert(Arena->Used + Size <= Arena->Size);
     
@@ -41,5 +33,27 @@ internal void *PushSize_(mem_arena *Arena, mem_index Size)
     
     return(Result);
 }
+
+struct entity
+{
+    v2 P;
+    v2 dP;
+    v2 ddP;
+    
+    v2 PDim;
+};
+
+struct engine_state
+{
+    memory_arena PermanentArena;
+    
+    world World;
+    
+    entity Player;
+    v4 BackDrop;
+    
+    real32 tSin;
+};
+
 
 #endif //HOME_ENGINE_H

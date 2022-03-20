@@ -55,7 +55,7 @@ typedef int32 bool32;
 typedef float real32;
 typedef double real64;
 
-typedef size_t mem_index;
+typedef size_t memory_index;
 
 
 enum CodeSections
@@ -164,23 +164,18 @@ struct engine_image
     uint32 Pitch;
 };
 
+// TODO(stylia): maybe remove this when we have entities  
 #include "home_engine_math.h"
+#include "home_world.h"
+#include "home_engine.h"
 
-struct engine_state
+struct engine_memory
 {
     void *Memory;
-    mem_index MemorySize;
     bool32 IsMemoryInitialized;
     
-    v2 P;
-    v2 dP;
-    v2 ddP;
-    
-    v2 PDim;
-    
-    v4 BackDrop;
-    
-    real32 tSin;
+    memory_index PermanentMemorySize;
+    memory_index TransientMemorySize;
     
     debug_platform_read_file *DEBUGPlatformReadFile;
     debug_platform_write_file *DEBUGPlatformWriteFile;
@@ -191,12 +186,12 @@ struct engine_state
 #endif
 };
 
-#define ENGINE_UPDATE_AND_RENDER(Name) void Name(engine_state *State, engine_input *Input, engine_image *Buffer)
+#define ENGINE_UPDATE_AND_RENDER(Name) void Name(engine_memory *Memory, engine_input *Input, engine_image *Buffer)
 typedef ENGINE_UPDATE_AND_RENDER(engine_update_and_render);
 extern "C" ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender);
 
 
-#define ENGINE_OUTPUT_SOUND(Name) void Name(engine_state *State, engine_sound *Sound)
+#define ENGINE_OUTPUT_SOUND(Name) void Name(engine_memory *Memory, engine_sound *Sound)
 typedef ENGINE_OUTPUT_SOUND(engine_output_sound);
 extern "C" ENGINE_OUTPUT_SOUND(EngineOutputSound);
 #endif //HOME_PLATFORM_H

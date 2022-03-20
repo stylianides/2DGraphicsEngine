@@ -118,10 +118,11 @@ struct win32_replay_stream
 
 struct win32_state
 {
+    // NOTE(stylia): Always zero memory
     void *Memory;
     
-    mem_index PermanentMemorySize;
-    mem_index TransientMemorySize;
+    memory_index PermanentMemorySize;
+    memory_index TransientMemorySize;
     
     win32_replay_stream ReplayStream;
 };

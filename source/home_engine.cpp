@@ -2,10 +2,6 @@
 #include "home_engine.h"
 #include "home_render_group.cpp"
 
-
-
-
-
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
 {
@@ -37,29 +33,39 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
 }
 
 #if DEBUG
-engine_state *DebugMemory;
+engine_memory *DebugMemory;
 #endif
 
 extern "C"
 ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
 {
 #if DEBUG
-    DebugMemory = State;
+    DebugMemory = Memory;
 #endif
     
     BEGIN_TIME_BLOCK(Sections_UpdateAndRender);
     
-    if(!State->IsMemoryInitialized)
+    // NOTE(stylia): Assume that the first bytes of memory are the engine state
+    engine_state *State = (engine_state *)Memory;
+    
+    if(!Memory->IsMemoryInitialized)
     {
-        State->P = V2(40.0f, 40.0f);
-        State->PDim = V2(30.0f, 30.0f);
-        State->IsMemoryInitialized = true;
+        InitializeArena(&State->PermanentArena, 
+                        Memory->PermanentMemorySize - sizeof(engine_state),
+                        (uint8 *)Memory + sizeof(engine_state));
+        
+        State->Player.P = V2(40.0f, 40.0f);
+        State->Player.PDim = V2(30.0f, 30.0f);
         State->BackDrop = V4(1.0f, 0.5f, 0.3f, 0.1f);
+        
+        State->World.TileEdgeInMeters = 1.0f;
+        
+        Memory->IsMemoryInitialized = true;
     }
     
-    // NOTE(stylia): This is bad code for testing save state and input loops
+    ClearScreen(Buffer, State->BackDrop);
     
-    // TODO(stylia): this is terrible, remove this
+    
     // TODO(stylia): make player controller mapping
     for(uint32 ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
@@ -67,38 +73,16 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     {
         engine_input_controller *Controller = Input->Controllers + ControllerIndex;
         
-        int32 MovingDistancePixels = 10;
-        
-        if(Controller->Buttons.Up.Press)
+        if(Controller->IsConnected)
         {
-            State->P += V2i(0, +MovingDistancePixels);
-        }
-        
-        if(Controller->Buttons.Down.Press)
-        {
-            State->P += V2i(0, -MovingDistancePixels);
-        }
-        
-        if(Controller->Buttons.Right.Press)
-        {
-            State->P += V2i(MovingDistancePixels, 0);
-        }
-        
-        if(Controller->Buttons.Left.Press)
-        {
-            State->P += V2i(-MovingDistancePixels, 0);
+            DrawRectangle(Buffer, State->Player.P, State->Player.P + State->Player.PDim, V4(0.5f, 0.5f, 0.5f, 0.5));
         }
     }
     
-    
-    // NOTE(stylia): Try the HotLoading by changing Colours!
-    State->BackDrop += V4(0.003f, 0.003f, 0.003f, 0.001f);
-    ClearScreen(Buffer, State->BackDrop);
-    /*DrawRectangleOutline(Buffer, V2(5.0f, 5.0f), V2(500.0f, 500.0f), 2,
-                         V4(0.0f, 0.0f, 0.0f, 0));*/
-    
-    
-    DrawRectangle(Buffer, State->P, State->P + State->PDim, V4(0.5f, 0.5f, 0.5f, 0.5));
+    for(int32 X = 0; X < 1000; ++X)
+    {
+        
+    }
     
     
     END_TIME_BLOCK(Sections_UpdateAndRender);
