@@ -4,6 +4,8 @@
 #define HOME_ENGINE_H
 
 #include "home_engine_platform.h"
+#include "home_engine_math.h"
+#include "home_world.cpp"
 
 struct memory_arena
 {
@@ -33,6 +35,8 @@ internal void *PushSize_(memory_arena *Arena, memory_index Size)
     
     return(Result);
 }
+
+
 
 struct entity
 {

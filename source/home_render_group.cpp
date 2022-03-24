@@ -4,10 +4,10 @@
 internal void
 DrawRectangle(engine_image *Buffer, v2 Min, v2 Max, v4 Colour)
 {
-    int32 MinX = RoundRealToInt32(Min.x);
-    int32 MaxX = RoundRealToInt32(Max.x);
-    int32 MinY = RoundRealToInt32(Min.y);
-    int32 MaxY = RoundRealToInt32(Max.y);
+    int32 MinX = RoundReal32ToInt32(Min.x);
+    int32 MaxX = RoundReal32ToInt32(Max.x);
+    int32 MinY = RoundReal32ToInt32(Min.y);
+    int32 MaxY = RoundReal32ToInt32(Max.y);
     
     MinX = (MinX < 0) ? 0 : MinX;
     MaxX = (MaxX > (int32)Buffer->Width) ? Buffer->Width : MaxX;

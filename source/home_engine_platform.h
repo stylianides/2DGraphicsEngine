@@ -21,6 +21,7 @@
 
 #define InvalidCodePath Assert(!"InvalidCodePath")
 
+#define INT_MAX 2147483647
 
 #define Pi32 3.1415926535f
 
@@ -163,11 +164,6 @@ struct engine_image
     uint32 Height;
     uint32 Pitch;
 };
-
-// TODO(stylia): maybe remove this when we have entities  
-#include "home_engine_math.h"
-#include "home_world.h"
-#include "home_engine.h"
 
 struct engine_memory
 {

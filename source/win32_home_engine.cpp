@@ -890,11 +890,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
         engine_input EngineInput = {};
         EngineInput.dt = TargetSecondsPerFrame;
         
+        engine_input_controller *Keyboard = &EngineInput.Controllers[0];
+        // TODO(stylia): Temporary
+        Keyboard->IsConnected = true;
+        
         MSG Message;
         while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
         {
-            engine_input_controller *Keyboard = &EngineInput.Controllers[0];
-            
             bool32 IsAltDown = ((Message.lParam >> 31) && 1);
             
             switch(Message.message)

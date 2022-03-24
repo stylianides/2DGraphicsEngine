@@ -4,7 +4,7 @@
 
 #include "math.h"
 
-int32 RoundRealToInt32(real32 Value)
+int32 RoundReal32ToInt32(real32 Value)
 {
 #ifdef MSVC
     int32 Result = (int32)roundf(Value);
