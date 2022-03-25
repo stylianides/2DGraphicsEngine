@@ -202,7 +202,6 @@ Win32ReloadEngineDLL(win32_engine_code *EngineCode)
     }
 }
 
-// TODO(stylia): Find a better way than this
 internal void *
 Win32InitializeMemory(memory_index PermanentMemorySize, 
                       memory_index TransientMemorySize)
@@ -210,10 +209,8 @@ Win32InitializeMemory(memory_index PermanentMemorySize,
     memory_index TotalSize = PermanentMemorySize + TransientMemorySize;
     void *Result = VirtualAlloc(0, TotalSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
-    for(uint32 Byte = 0; Byte < TotalSize; ++Byte)
-    {
-        *((uint8*)Result + Byte) = 0;
-    }
+    // NOTE(stylia): VirtualAlloc automatically initializes memory to zero.
+    //               On other platforms this must be guaranteed.
     
     return(Result);
 }
