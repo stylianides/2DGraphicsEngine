@@ -65,43 +65,17 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         State->Player.PDim = V2(30.0f, 30.0f);
         State->BackDrop = V4(0.3f, 0.3f, 0.3f, 0.3f);
         
-        State->World.TileDim = 2.0f;
+        State->World.BlockDim = BLOCK_DIM;
         
         Memory->IsMemoryInitialized = true;
         
-        World->Chunks = PushArray(PermArena, world_chunk, 100);
-        World->ChunkSize = 100;
         
-        uint32 ChunkStartX = (INT_MAX / 2);
-        uint32 ChunkStartY = (INT_MAX / 2); 
-        
-        world_chunk *Chunk = World->Chunks;
-        
-        for(uint32 X = ChunkStartX; X < ChunkStartX + 10; ++X)
-        {
-            for(uint32 Y = ChunkStartY; Y < ChunkStartY + 10; ++Y)
-            {
-                Chunk->X = X;
-                Chunk->Y = Y;
-                Chunk++;
-            }
-        }
     }
     
+    
+    
+    
     // TODO(stylia): make player controller mapping
-    
-    world_pos Pos1 = {5, 5, 0, 2, 0.2f, 0.3f};
-    world_pos Pos2 = {5, 5, 0, 2, 2.2f, 2.3f};
-    world_pos Pos3 = {5, 5, 0, 2, 8.7f, 9.1f};
-    world_pos Pos4 = {5, 5, 0, 2, 0.0f, 0.0f};
-    world_pos Pos5 = {5, 5, 0, 2, -0.75f, -0.5f};
-    
-    Pos1 = Canonicalize(World, Pos1);
-    Pos2 = Canonicalize(World, Pos2);
-    Pos3 = Canonicalize(World, Pos3);
-    Pos4 = Canonicalize(World, Pos4);
-    Pos5 = Canonicalize(World, Pos5);
-    
     for(uint32 ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ControllerIndex++)

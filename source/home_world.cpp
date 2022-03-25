@@ -1,53 +1,34 @@
 #include "home_world.h"
 #include "home_intrinsics.h"
 
-
-
-internal world_pos Canonicalize(world *World, world_pos Pos)
+internal void
+CanonicalizeCoord(world *World, int32 *BlockCoord, real32 *Coord)
 {
-    world_pos Result = Pos;
+    // TODO(stylia): Epsilon
+    real32 BlockDim = World->BlockDim;
+    real32 HalfBlockDim = 0.5f*BlockDim;
     
-    int32 TileOffsetX = RoundReal32ToInt32(Pos.Rel.x / World->TileDim);
-    int32 TileOffsetY = RoundReal32ToInt32(Pos.Rel.y / World->TileDim);
+    int32 BlockOffset = RoundReal32ToInt32(*Coord / BlockDim);
     
-    Result.TileX += TileOffsetX; 
-    Result.TileY += TileOffsetY; 
-    
-    if(TileOffsetX > 0)
+    *BlockCoord += BlockOffset;
+    if(BlockOffset > 0)
     {
-        Result.Rel.x =  -1.0f + (Pos.Rel.x - TileOffsetX * World->TileDim);
+        *Coord += -(BlockOffset*BlockDim);
     }
-    else if(TileOffsetX < 0)
+    else if (BlockOffset < 0)
     {
-        Result.Rel.x =  1.0f - (Pos.Rel.x - TileOffsetX * World->TileDim);
+        *Coord += (BlockOffset*BlockDim);
     }
+}
+
+internal world_position
+Canonicalize(world *World, world_position Pos)
+{
+    world_position Result = Pos;
     
-    if(TileOffsetY > 0)
-    {
-        Result.Rel.y = -1.0f + (Pos.Rel.y - TileOffsetX * World->TileDim);
-    }
-    else if(TileOffsetY < 0)
-    {
-        Result.Rel.y = 1.0f - (Pos.Rel.y - TileOffsetX * World->TileDim);
-    }
-    
-    int32 ChunkOffsetX = Result.TileX / CHUNK_DIM_X;
-    int32 ChunkOffsetY = Result.TileY / CHUNK_DIM_Y;
-    
-    Assert(ChunkOffsetX > -2 && ChunkOffsetX < 2);
-    Assert(ChunkOffsetY > -2 && ChunkOffsetY < 2);
-    
-    if(ChunkOffsetX)
-    {
-        Result.ChunkX += ChunkOffsetX;
-        Result.TileX = Result.TileX - ChunkOffsetX * CHUNK_DIM_X;
-    }
-    
-    if(ChunkOffsetY)
-    {
-        Result.ChunkY += ChunkOffsetY;
-        Result.TileY = Result.TileY - ChunkOffsetY * CHUNK_DIM_Y;
-    }
+    CanonicalizeCoord(World, &Result.Block.X, &Result.Offset_.x);
+    CanonicalizeCoord(World, &Result.Block.Y, &Result.Offset_.y);
+    CanonicalizeCoord(World, &Result.Block.Z, &Result.Offset_.z);
     
     return(Result);
 }

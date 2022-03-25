@@ -2,41 +2,31 @@
 #ifndef HOME_WORLD_H
 #define HOME_WORLD_H
 
-#define CHUNK_DIM_X 4
-#define CHUNK_DIM_Y 4
 
-struct world_pos
+#define BLOCK_DIM 2
+
+
+struct world_block
 {
-    uint64 ChunkX;
-    uint64 ChunkY;
-    
-    uint32 TileX;
-    uint32 TileY;
-    
-    v2 Rel;
+    int32 X;
+    int32 Y;
+    int32 Z;
 };
 
-struct world_tile
+struct world_position
 {
-    uint32 TileX;
-    uint32 TileY;
-};
-
-struct world_chunk
-{
-    uint64 X;
-    uint64 Y;
+    world_block Block;
     
-    world_tile Tiles[CHUNK_DIM_Y][CHUNK_DIM_X];
+    // NOTE(stylia): Offset from center of block
+    //               Don't change this directly
+    v3 Offset_;
 };
 
 struct world
 {
-    real32 TileDim;
+    real32 BlockDim;
     
-    // TODO(stylia): sparse storage, not static, hash table
-    world_chunk *Chunks;
-    uint32 ChunkSize;
+    world_block Blocks[4096];
 };             
 
 #endif //HOME_WORLD_H
