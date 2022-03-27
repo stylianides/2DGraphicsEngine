@@ -3,7 +3,7 @@
 #define HOME_WORLD_H
 
 
-#define BLOCK_DIM 2
+#define BLOCK_DIM_METERS 4
 
 
 struct world_block
@@ -24,7 +24,7 @@ struct world_position
 
 struct world
 {
-    real32 BlockDim;
+    real32 BlockDimMeters;
     
     world_block Blocks[4096];
 };             

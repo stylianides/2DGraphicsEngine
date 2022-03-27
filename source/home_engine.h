@@ -36,15 +36,27 @@ internal void *PushSize_(memory_arena *Arena, memory_index Size)
     return(Result);
 }
 
-
-
 struct entity
 {
+    world_position Pos;
+    
     v2 P;
     v2 dP;
     v2 ddP;
     
     v2 PDim;
+    
+    v2 Thickness;
+    
+    v4 Colour;
+};
+
+struct camera
+{
+    world_position Pos;
+    
+    v2 RenderThickness;
+    v4 RenderColour;
 };
 
 struct engine_state
@@ -53,8 +65,18 @@ struct engine_state
     
     world World;
     
+    // TODO(stylia): Put this on Render group
+    real32 MetersToPixels;
+    
+    v4 BackDropColour;
+    
+#if DEBUG
+    camera DebugCamera;
+#endif
+    camera GameCamera;
+    
+    
     entity Player;
-    v4 BackDrop;
     
     real32 tSin;
 };
