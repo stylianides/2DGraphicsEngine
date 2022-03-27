@@ -38,11 +38,13 @@ Difference(world *World, world_position A, world_position B)
 {
     real32 BlockDim = World->BlockDimMeters;
     
-    v3 Result; 
+    v3 Result = {};
     
     Result.x = BlockDim*(A.Block.X - B.Block.X) + (A.Offset_.x - B.Offset_.x);
     Result.y = BlockDim*(A.Block.Y - B.Block.Y) + (A.Offset_.y - B.Offset_.y);
-    Result.x = BlockDim*(A.Block.Z - B.Block.Z) + (A.Offset_.z - B.Offset_.z);
+    Result.z = BlockDim*(A.Block.Z - B.Block.Z) + (A.Offset_.z - B.Offset_.z);
     
     return(Result);
 }
+
+

@@ -1,7 +1,7 @@
 
 #include "home_engine.h"
 #include "home_render_group.cpp"
-
+#include "home_entity.cpp"
 
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
@@ -40,15 +40,21 @@ engine_memory *DebugMemory;
 extern "C"
 ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
 {
+    engine_state *State = (engine_state *)Memory;
+    
 #if DEBUG
     DebugMemory = Memory;
+    camera *DebugCamera = &State->DebugCamera;
 #endif
     
     BEGIN_TIME_BLOCK(Sections_UpdateAndRender);
     
-    engine_state *State = (engine_state *)Memory;
     memory_arena *PermArena = &State->PermanentArena;
     world *World = &State->World;
+    
+    real32 dt = Input->dt; // NOTE(stylia): Timestep
+    
+    
     
     ClearScreen(Buffer, State->BackDropColour);
     
@@ -72,13 +78,18 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         int32 BlockX = INT_MAX / 2;
         int32 BlockY = INT_MAX / 2;
         
-        world_position InitialPosition = {BlockX, BlockY, 0, V3(0.0f, 0.0f, 0.0f)};
+        State->GameCamera.P = V3(0.0f, 0.0f, 0.0f);
         
-        State->GameCamera.Pos = InitialPosition;
-        State->DebugCamera.Pos = InitialPosition;
-        State->DebugCamera.RenderThickness = V2(5.0f, 5.0f);
-        State->Player.Pos = InitialPosition;
-        State->Player.Pos.Offset_ = V3(1.3f, 0.5f, 0.0f);
+        DebugCamera->Block.X = BlockX;
+        DebugCamera->Block.Y = BlockY;
+        DebugCamera->Block.Z = 0;
+        DebugCamera->P = V3(0.0f, 0.0f, 0.0f);
+        DebugCamera->RenderThickness = V2(5.0f, 5.0f);
+        DebugCamera->ScreenMapping = V2((real32)(Buffer->Width / 2), (real32)(Buffer->Height / 2));
+        
+        State->Player.Block.X = BlockX;
+        State->Player.Block.Y = BlockY;
+        State->Player.P = V3(1.3f, 0.5f, 0.0f);
         
         for(uint32 Block = 0; Block < 4096; ++Block)
         {
@@ -95,18 +106,8 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         Memory->IsMemoryInitialized = true;
     }
     
-    // NOTE(stylia): Render Camera Point
-    v2 CameraThickness = {5, 5};
-    v2 CameraPos = V2((real32)(Buffer->Width / 2), (real32)(Buffer->Height / 2));
-    v4 CameraColour = V4(0.5f, 0.1f, 0.3f, 1.0f);
-    
-    v2 CameraCenter = V2((real32)(Buffer->Width/2), (real32)(Buffer->Height/2));
-    v2 CameraTopLeft = CameraCenter - State->DebugCamera.RenderThickness;
-    v2 CameraBottomRight = CameraCenter + State->DebugCamera.RenderThickness;
-    DrawRectangle(Buffer, CameraTopLeft, CameraBottomRight, State->DebugCamera.RenderColour);
     
     
-    // TODO(stylia): make player controller mapping
     for(uint32 ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ControllerIndex++)
@@ -115,20 +116,70 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         
         if(Controller->IsConnected)
         {
-            v3 PlayerCameraDistance =
-                Difference(World, State->DebugCamera.Pos, State->Player.Pos);
+            v3 ddP = {};
             
-            v2 PlayerCenter = CameraPos - State->MetersToPixels * PlayerCameraDistance.xy;
+            // TODO(stylia): Total length has to be unit size, fix it
+            if(Controller->Buttons.Up.Press)
+            {
+                ddP += V3(0.0f, 1.0f, 0.0f);
+            }
+            if(Controller->Buttons.Down.Press)
+            {
+                ddP += V3(0.0f, -1.0f, 0.0f);
+            }
+            if(Controller->Buttons.Left.Press)
+            {
+                ddP += V3(-1.0f, 0.0f, 0.0f);
+            }
+            if(Controller->Buttons.Right.Press)
+            {
+                ddP += V3(1.0f, 0.0f, 0.0f);
+            }
+            
+            ddP *= 15;
+            
+            real32 DragRate = 2.0f;
+            v3 Drag = DragRate*State->Player.dP;
+            Drag.z = 0.0f;
+            ddP -= Drag;
+            
+            v3 dP = State->Player.dP + dt*ddP;
+            v3 Delta = ddP*(Square(dt) / 2.0f) +
+                dt*State->Player.dP;
+            
+            State->Player.dP = dP;
+            State->Player.P += Delta;
+        }
+    }
+    
+    // NOTE(stylia): Rendering
+    
+    v2 CameraTopLeft = DebugCamera->ScreenMapping - DebugCamera->RenderThickness;
+    v2 CameraBottomRight = DebugCamera->ScreenMapping + DebugCamera->RenderThickness;
+    DrawRectangle(Buffer, CameraTopLeft, CameraBottomRight, DebugCamera->RenderColour);
+    
+    // NOTE(stylia): Render players
+    for(uint32 ControllerIndex = 0;
+        ControllerIndex < ArrayCount(Input->Controllers);
+        ControllerIndex++)
+    {
+        // TODO(stylia): Make player controller mapping
+        engine_input_controller *Controller = Input->Controllers + ControllerIndex;
+        
+        if(Controller->IsConnected)
+        {
+            world_position CameraPosition = {DebugCamera->Block, DebugCamera->P};
+            world_position PlayerPosition = {State->Player.Block, State->Player.P};
+            
+            v3 PlayerCameraDistance = Difference(World, CameraPosition, PlayerPosition);
+            
+            v2 PlayerCenter = DebugCamera->ScreenMapping - State->MetersToPixels * PlayerCameraDistance.xy;
             v2 PlayerTopLeft = PlayerCenter - State->Player.Thickness;
             v2 PlayerBottomRight = PlayerCenter + State->Player.Thickness;
             
             DrawRectangle(Buffer, PlayerTopLeft, PlayerBottomRight, State->Player.Colour);
         }
     }
-    
-    
-    
-    
     
     END_TIME_BLOCK(Sections_UpdateAndRender);
 }

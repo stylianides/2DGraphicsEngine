@@ -3,16 +3,16 @@
 #ifndef HOME_ENTITY_H
 #define HOME_ENTITY_H
 
-struct entity_player
+struct entity
 {
-    bool32 Active;
+    world_block Block;
     
-    v2 P;
-    v2 dP;
+    v3 P;
+    v3 dP;
     
-    v2 Dim;
+    v2 Thickness;
     
-    uint32 Color;
+    v4 Colour;
 };
 
 #endif //HOME_ENTITY_H

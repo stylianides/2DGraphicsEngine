@@ -6,6 +6,7 @@
 #include "home_engine_platform.h"
 #include "home_engine_math.h"
 #include "home_world.cpp"
+#include "home_entity.h"
 
 struct memory_arena
 {
@@ -36,24 +37,14 @@ internal void *PushSize_(memory_arena *Arena, memory_index Size)
     return(Result);
 }
 
-struct entity
-{
-    world_position Pos;
-    
-    v2 P;
-    v2 dP;
-    v2 ddP;
-    
-    v2 PDim;
-    
-    v2 Thickness;
-    
-    v4 Colour;
-};
+
 
 struct camera
 {
-    world_position Pos;
+    world_block Block;
+    v3 P;
+    
+    v2 ScreenMapping;
     
     v2 RenderThickness;
     v4 RenderColour;
@@ -74,7 +65,6 @@ struct engine_state
     camera DebugCamera;
 #endif
     camera GameCamera;
-    
     
     entity Player;
     

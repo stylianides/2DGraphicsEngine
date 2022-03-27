@@ -178,6 +178,76 @@ inline v3 V3i(uint32 X, uint32 Y, uint32 Z)
     return(Result);
 }
 
+inline v3 operator+(v3 A, v3 B)
+{
+    v3 Result;
+    
+    Result.x = A.x + B.x;
+    Result.y = A.y + B.y;
+    Result.z = A.z + B.z;
+    
+    return(Result);
+}
+
+inline v3 &operator+=(v3 &A, v3 B)
+{
+    A.x += B.x;
+    A.y += B.y;
+    A.z += B.z;
+    
+    return(A);
+}
+
+inline v3 operator-(v3 A, v3 B)
+{
+    v3 Result;
+    
+    Result.x = A.x - B.x;
+    Result.y = A.y - B.y;
+    Result.z = A.z - B.z;
+    
+    return(Result);
+}
+
+inline v3 &operator-=(v3 &A, v3 B)
+{
+    A.x -= B.x;
+    A.y -= B.y;
+    A.z -= B.z;
+    
+    return(A);
+}
+
+inline v3 operator*(v3 A, real32 B)
+{
+    v3 Result;
+    
+    Result.x = A.x * B;
+    Result.y = A.y * B;
+    Result.z = A.z * B;
+    
+    return(Result);
+}
+
+inline v3 operator*(real32 A, v3 B)
+{
+    v3 Result;
+    
+    Result.x = A * B.x;
+    Result.y = A * B.y;
+    Result.z = A * B.z;
+    
+    return(Result);
+}
+
+inline v3 &operator*=(v3 &A, real32 B)
+{
+    A.x *= B;
+    A.y *= B;
+    A.z *= B;
+    
+    return(A);
+}
 
 inline v4 V4(real32 X, real32 Y, real32 Z, real32 W)
 {
