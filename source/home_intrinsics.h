@@ -30,4 +30,20 @@ uint32 RoundRealToUInt32(real32 Value)
     return(Result);
 }
 
+
+uint8 BitScanForward32(uint32 Mask)
+{
+#ifdef MSVC
+    unsigned long Result = 0;
+    _BitScanForward(&Result, Mask);
+#elif GCC
+    // TODO(stylia): find gcc equivalent
+#else
+    // TODO(stylia): implement this myself
+#endif
+    
+    return((uint8)Result);
+}
+
+
 #endif 

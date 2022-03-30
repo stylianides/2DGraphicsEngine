@@ -33,6 +33,51 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
 #endif
 }
 
+bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile)
+{
+    bitmap_loaded Result = {};
+    
+    file_contents File = ReadFile(Filename);
+    bitmap_header *BmpHeader = (bitmap_header *)File.Contents;
+    
+    Result.Width = BmpHeader->Width;
+    Result.Height = BmpHeader->Height;
+    Result.BitsPerPixel = BmpHeader->BitsPerPixel;
+    Result.Pixels = (uint32 *)((uint8 *)BmpHeader + BmpHeader->BitmapOffset);
+    
+    Assert(BmpHeader->Compression == 3);
+    
+    uint32 RedMask = BmpHeader->RedMask;
+    uint32 GreenMask = BmpHeader->GreenMask;
+    uint32 BlueMask = BmpHeader->BlueMask;
+    uint32 AlphaMask = ~(BmpHeader->RedMask | 
+                         BmpHeader->GreenMask | 
+                         BmpHeader->BlueMask);
+    
+    uint8 RedShift = BitScanForward32(RedMask);
+    uint8 GreenShift = BitScanForward32(GreenMask);
+    uint8 BlueShift = BitScanForward32(BlueMask);
+    uint8 AlphaShift = BitScanForward32(AlphaMask);
+    
+    for(int32 Y = 0; Y < BmpHeader->Width; ++Y)
+    {
+        for(int32 X = 0; X < BmpHeader->Height; ++X)
+        {
+            uint32 *Pixel = Result.Pixels + (Y*BmpHeader->Width + X);
+            
+            uint32 SR = (*Pixel & RedMask)   >> RedShift;
+            uint32 SG = (*Pixel & GreenMask) >> GreenShift;
+            uint32 SB = (*Pixel & BlueMask)  >> BlueShift;
+            uint32 SA = (*Pixel & AlphaMask) >> AlphaShift;
+            
+            *Pixel = (SA << 24) | (SR << 16)| (SG << 8) | (SB << 0);
+        }
+    }
+    
+    return(Result);
+}
+
+
 #if DEBUG
 engine_memory *DebugMemory;
 #endif
@@ -72,6 +117,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         
         State->Player.Thickness = V2(30.0f, 30.0f);
         State->Player.Colour = V4(0.5f, 0.0f, 0.0f, 1.0f);
+        State->PlayerSprite = LoadBitmap("./time_man_proto.bmp", Memory->DEBUGPlatformReadFile);
         
         State->World.BlockDimMeters = BLOCK_DIM_METERS;
         
@@ -158,6 +204,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     v2 CameraBottomRight = DebugCamera->ScreenMapping + DebugCamera->RenderThickness;
     DrawRectangle(Buffer, CameraTopLeft, CameraBottomRight, DebugCamera->RenderColour);
     
+    
     // NOTE(stylia): Render players
     for(uint32 ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
@@ -177,7 +224,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
             v2 PlayerTopLeft = PlayerCenter - State->Player.Thickness;
             v2 PlayerBottomRight = PlayerCenter + State->Player.Thickness;
             
-            DrawRectangle(Buffer, PlayerTopLeft, PlayerBottomRight, State->Player.Colour);
+            DrawBitmap(Buffer, State->PlayerSprite, PlayerBottomRight);
         }
     }
     
