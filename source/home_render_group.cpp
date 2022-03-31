@@ -4,8 +4,8 @@
 internal void
 DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 ScreenPos)
 {
-    int32 MinX = RoundReal32ToInt32(ScreenPos.x);
-    int32 MinY = RoundReal32ToInt32(ScreenPos.y);
+    int32 MinX = RoundReal32ToInt32(ScreenPos.x) - Bitmap.AlignX;
+    int32 MinY = RoundReal32ToInt32(ScreenPos.y) - Bitmap.AlignY;
     
     MinX = (MinX < 0) ? 0 : MinX;
     MinY = (MinY < 0) ? 0 : MinY;

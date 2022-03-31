@@ -33,7 +33,8 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
 #endif
 }
 
-bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile)
+bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile, 
+                         int32 AlignX = 0, int32 AlignY = 0)
 {
     bitmap_loaded Result = {};
     
@@ -77,6 +78,8 @@ bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile)
     Result.Width = Width;
     Result.Height = Height;
     Result.BitsPerPixel = BmpHeader->BitsPerPixel;
+    Result.AlignX = AlignX;
+    Result.AlignY = AlignY;
     
     return(Result);
 }
@@ -121,7 +124,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         
         State->Player.Thickness = V2(30.0f, 30.0f);
         State->Player.Colour = V4(0.5f, 0.0f, 0.0f, 1.0f);
-        State->PlayerSprite = LoadBitmap("./time_man_proto.bmp", Memory->DEBUGPlatformReadFile);
+        State->PlayerSprite = LoadBitmap("./time_man_proto.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
         
         State->World.BlockDimMeters = BLOCK_DIM_METERS;
         
@@ -225,10 +228,9 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
             v3 PlayerCameraDistance = Difference(World, CameraPosition, PlayerPosition);
             
             v2 PlayerCenter = DebugCamera->ScreenMapping - State->MetersToPixels * PlayerCameraDistance.xy;
-            v2 PlayerTopLeft = PlayerCenter - State->Player.Thickness;
-            v2 PlayerBottomRight = PlayerCenter + State->Player.Thickness;
             
-            DrawBitmap(Buffer, State->PlayerSprite, PlayerBottomRight);
+            DrawRectangle(Buffer, PlayerCenter, PlayerCenter + V2(1.0f, 1.0f), V4(1.0f, 0.0f, 1.0f, 1.0f));
+            DrawBitmap(Buffer, State->PlayerSprite, PlayerCenter);
         }
     }
     

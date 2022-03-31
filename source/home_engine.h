@@ -71,6 +71,9 @@ struct bitmap_loaded
     int32 Height;
     
     uint16 BitsPerPixel;
+    
+    int32 AlignX;
+    int32 AlignY;
 };
 
 struct camera
