@@ -10,23 +10,28 @@ DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 ScreenPos)
     MinX = (MinX < 0) ? 0 : MinX;
     MinY = (MinY < 0) ? 0 : MinY;
     
-    uint32 *Source = (uint32 *)Bitmap.Pixels + ((Bitmap.Height - 1)*Bitmap.Width);
-    uint32 *Dest = (uint32 *)Buffer->Pixels + (MinY*Buffer->Width) + MinX;
+    uint32 *Source = (uint32 *)Bitmap.Pixels;
+    uint32 *Dest = (uint32 *)Buffer->Pixels + MinY * Buffer->Width + MinX;
+    
+    uint32 AlphaMask = 0xFF000000;
     
     for(int32 Y = 0; Y < Bitmap.Height; ++Y)
     {
-        uint32 *SourceRow = Source - Y*Bitmap.Width;
+        uint32 *SourceRow = Source + Y*Bitmap.Width;
         uint32 *DestRow = Dest + Y*Buffer->Width;
         for(int32 X = 0; X < Bitmap.Width; ++X)
         {
             uint32 *SourcePixel = SourceRow + X;
-            
-            
             uint32 *DestPixel = DestRow + X;
-            *DestPixel = *SourcePixel;
+            
+            uint8 Alpha = (uint8)((*SourcePixel & AlphaMask) >> 24);
+            
+            if(Alpha > 0)
+            {
+                *DestPixel = *SourcePixel;
+            }
         }
     }
-    
 }
 
 internal void

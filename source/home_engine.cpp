@@ -39,13 +39,12 @@ bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile)
     
     file_contents File = ReadFile(Filename);
     bitmap_header *BmpHeader = (bitmap_header *)File.Contents;
-    
-    Result.Width = BmpHeader->Width;
-    Result.Height = BmpHeader->Height;
-    Result.BitsPerPixel = BmpHeader->BitsPerPixel;
-    Result.Pixels = (uint32 *)((uint8 *)BmpHeader + BmpHeader->BitmapOffset);
-    
     Assert(BmpHeader->Compression == 3);
+    
+    uint32 *Pixels = (uint32 *)((uint8 *)BmpHeader + BmpHeader->BitmapOffset);
+    
+    int32 Width = BmpHeader->Width;
+    int32 Height = BmpHeader->Height;
     
     uint32 RedMask = BmpHeader->RedMask;
     uint32 GreenMask = BmpHeader->GreenMask;
@@ -59,11 +58,11 @@ bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile)
     uint8 BlueShift = BitScanForward32(BlueMask);
     uint8 AlphaShift = BitScanForward32(AlphaMask);
     
-    for(int32 Y = 0; Y < BmpHeader->Width; ++Y)
+    for(int32 Y = 0; Y < Width; ++Y)
     {
-        for(int32 X = 0; X < BmpHeader->Height; ++X)
+        for(int32 X = 0; X < Height; ++X)
         {
-            uint32 *Pixel = Result.Pixels + (Y*BmpHeader->Width + X);
+            uint32 *Pixel = Pixels + (Y*Width + X);
             
             uint32 SR = (*Pixel & RedMask)   >> RedShift;
             uint32 SG = (*Pixel & GreenMask) >> GreenShift;
@@ -73,6 +72,11 @@ bitmap_loaded LoadBitmap(char *Filename, debug_platform_read_file *ReadFile)
             *Pixel = (SA << 24) | (SR << 16)| (SG << 8) | (SB << 0);
         }
     }
+    
+    Result.Pixels = Pixels;
+    Result.Width = Width;
+    Result.Height = Height;
+    Result.BitsPerPixel = BmpHeader->BitsPerPixel;
     
     return(Result);
 }
