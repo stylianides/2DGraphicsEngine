@@ -160,8 +160,9 @@ struct engine_image
 {
     void *Pixels;
     
-    uint32 Width;
-    uint32 Height;
+    int32 Width;
+    int32 Height;
+    
     uint32 Pitch;
 };
 
