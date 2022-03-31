@@ -4,6 +4,7 @@
 internal void
 DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 BitmapPos)
 {
+    
     int32 MinX = RoundReal32ToInt32(BitmapPos.x) - Bitmap.AlignX;
     int32 MinY = RoundReal32ToInt32(BitmapPos.y) - Bitmap.AlignY;
     
@@ -16,12 +17,8 @@ DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 BitmapPos)
     int32 ColumnStart = (MinX < 0) ? (-MinX) : (0);
     int32 ColumnEnd = (MaxX > Buffer->Width) ? (Buffer->Width - MinX) : (Bitmap.Width);
     
-    int32 RowStart = (MinY < 0) ? (-MinY) : (0);
-    int32 RowEnd = (MaxY > Buffer->Height) ?
-    (Buffer->Height - MinY) : 
-    (Bitmap.Height);
-    
-    uint32 AlphaMask = 0xFF000000;
+    int32 RowStart = (MinY < 0) ? (-MinY) : (0); 
+    int32 RowEnd = (MaxY > Buffer->Height) ? (Buffer->Height - MinY) : (Bitmap.Height);
     
     for(int32 Y = RowStart; Y < RowEnd; ++Y)
     {
@@ -33,6 +30,7 @@ DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 BitmapPos)
             uint32 *SourcePixel = SourceRow + X;
             uint32 *DestPixel = DestRow + X;
             
+            uint32 AlphaMask = 0xFF000000;
             uint8 Alpha = (uint8)((*SourcePixel & AlphaMask) >> 24);
             
             // TODO(stylia): Blended Alpha

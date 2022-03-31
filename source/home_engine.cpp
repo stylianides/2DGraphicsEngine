@@ -159,8 +159,6 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         Memory->IsMemoryInitialized = true;
     }
     
-    
-    
     for(uint32 ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ControllerIndex++)
@@ -169,24 +167,41 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         
         if(Controller->IsConnected)
         {
-            v3 ddP = {};
+            // NOTE(stylia): StickX, StickY are normalized
+            real32 dX = Controller->StickX;
+            real32 dY = Controller->StickY;
             
-            // TODO(stylia): Total length has to be unit size, fix it
             if(Controller->Buttons.Up.Press)
             {
-                ddP += V3(0.0f, 1.0f, 0.0f);
+                dY = 1.0f;
             }
             if(Controller->Buttons.Down.Press)
             {
-                ddP += V3(0.0f, -1.0f, 0.0f);
+                dY = -1.0f;
             }
             if(Controller->Buttons.Left.Press)
             {
-                ddP += V3(-1.0f, 0.0f, 0.0f);
+                dX = -1.0f;
             }
             if(Controller->Buttons.Right.Press)
             {
-                ddP += V3(1.0f, 0.0f, 0.0f);
+                dX = 1.0f;
+            }
+            
+            v3 ddP = {};
+            
+            if((Square(dX) + Square(dY)) <= 1)
+            {
+                ddP = V3(dX, dY, 0.0f);
+            }
+            else
+            {
+                real32 Hypotenuse = Sqrt(Square(dX) + Square(dY));
+                
+                real32 dXPrime = dX / Hypotenuse;
+                real32 dYPrime = dY / Hypotenuse;
+                
+                ddP = V3(dXPrime, dYPrime, 0.0f);
             }
             
             ddP *= 15;

@@ -45,5 +45,12 @@ uint8 BitScanForward32(uint32 Mask)
     return((uint8)Result);
 }
 
+// TODO(stylia): Intinsic this
+real32 Sqrt(real32 Value)
+{
+    real32 Result = sqrtf(Value);
+    
+    return(Result);
+}
 
 #endif 

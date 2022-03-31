@@ -872,6 +872,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     EngineMemory->DEBUGPlatformWriteFile = Win32DEBUGWriteFile;
     EngineMemory->DEBUGPlatformFreeFile = Win32DEBUGFreeFile;
     
+    engine_input EngineInput = {};
     // NOTE(stylia): Game Loop
     GlobalRunning = true;
     while(GlobalRunning)
@@ -884,7 +885,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             Win32ReloadEngineDLL(&EngineCode);
         }
         
-        engine_input EngineInput = {};
         EngineInput.dt = TargetSecondsPerFrame;
         
         engine_input_controller *Keyboard = &EngineInput.Controllers[0];
@@ -899,8 +899,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
             switch(Message.message)
             {
                 case WM_KEYDOWN:
-                case WM_KEYUP:
                 case WM_SYSKEYDOWN:
+                case WM_KEYUP:
                 case WM_SYSKEYUP:
                 {
                     bool32 IsDown = ((Message.message == WM_KEYUP) || (Message.message == WM_SYSKEYUP)) ? false : true;
