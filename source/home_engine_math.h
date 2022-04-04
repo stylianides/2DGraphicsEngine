@@ -4,7 +4,6 @@
 // TODO(stylia): Make it so math.h is not needed
 #include "math.h"
 
-
 union v2
 {
     struct
@@ -325,7 +324,28 @@ struct rect2
 };
 
 
+inline int32 
+LClampN(int32 Value, int32 N)
+{
+    int32 Result = (Value < N) ? (N) : (Value);
+    
+    return(Result);
+}
 
+inline int32 
+LClamp0(int32 Value)
+{
+    int32 Result = LClampN(Value, 0);
+    
+    return(Result);
+}
 
+inline int32 
+HClampN(int32 Value, int32 N)
+{
+    int32 Result = (Value > N) ? (N) : (Value);
+    
+    return(Result);
+}
 
 #endif //HOMEMATH_H

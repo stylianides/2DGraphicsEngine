@@ -5,27 +5,34 @@ internal void
 DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 BitmapPos)
 {
     
+    // TODO(stylia): redesign this
     int32 MinX = RoundReal32ToInt32(BitmapPos.x) - Bitmap.AlignX;
     int32 MinY = RoundReal32ToInt32(BitmapPos.y) - Bitmap.AlignY;
     
     int32 MaxX = MinX + Bitmap.Width;
     int32 MaxY = MinY + Bitmap.Height;
     
-    uint32 *Dest = (uint32 *)Buffer->Pixels + MinY * Buffer->Width + MinX;
+    int32 ImageStartX = (MinX < 0) ? (-MinX) : (0);
+    int32 ImageEndX = (MaxX > Buffer->Width) ? (Buffer->Width - MinX) : (Bitmap.Width);
+    
+    int32 ImageStartY = (MinY < 0) ? (-MinY) : (0); 
+    int32 ImageEndY = (MaxY > Buffer->Height) ? (Buffer->Height - MinY) : (Bitmap.Height);
+    
+    int32 ScreenX = LClamp0(MinX);
+    int32 ScreenY = LClamp0(MinY);
+    
+    ScreenX = HClampN(ScreenX, Buffer->Width - 1);
+    ScreenY = HClampN(ScreenY, Buffer->Height - 1);
+    
+    uint32 *Dest = (uint32 *)Buffer->Pixels + ScreenY*Buffer->Width + ScreenX;
     uint32 *Source = (uint32 *)Bitmap.Pixels;
     
-    int32 ColumnStart = (MinX < 0) ? (-MinX) : (0);
-    int32 ColumnEnd = (MaxX > Buffer->Width) ? (Buffer->Width - MinX) : (Bitmap.Width);
-    
-    int32 RowStart = (MinY < 0) ? (-MinY) : (0); 
-    int32 RowEnd = (MaxY > Buffer->Height) ? (Buffer->Height - MinY) : (Bitmap.Height);
-    
-    for(int32 Y = RowStart; Y < RowEnd; ++Y)
+    for(int32 Y = ImageStartY; Y < ImageEndY; ++Y)
     {
         uint32 *SourceRow = Source + Y*Bitmap.Width;
         uint32 *DestRow = Dest + Y*Buffer->Width;
         
-        for(int32 X = ColumnStart; X < ColumnEnd; ++X)
+        for(int32 X = ImageStartX; X < ImageEndX; ++X)
         {
             uint32 *SourcePixel = SourceRow + X;
             uint32 *DestPixel = DestRow + X;

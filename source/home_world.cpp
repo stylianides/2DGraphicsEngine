@@ -21,16 +21,12 @@ CanonicalizeCoord(world *World, int32 *BlockCoord, real32 *Coord)
     }
 }
 
-internal world_position
-Canonicalize(world *World, world_position Pos)
+internal void
+Canonicalize(world *World, world_position *Pos)
 {
-    world_position Result = Pos;
-    
-    CanonicalizeCoord(World, &Result.Block.X, &Result.Offset_.x);
-    CanonicalizeCoord(World, &Result.Block.Y, &Result.Offset_.y);
-    CanonicalizeCoord(World, &Result.Block.Z, &Result.Offset_.z);
-    
-    return(Result);
+    CanonicalizeCoord(World, &Pos->Block.X, &Pos->P.x);
+    CanonicalizeCoord(World, &Pos->Block.Y, &Pos->P.y);
+    CanonicalizeCoord(World, &Pos->Block.Z, &Pos->P.z);
 }
 
 internal v3
@@ -40,9 +36,9 @@ Difference(world *World, world_position A, world_position B)
     
     v3 Result = {};
     
-    Result.x = BlockDim*(A.Block.X - B.Block.X) + (A.Offset_.x - B.Offset_.x);
-    Result.y = BlockDim*(A.Block.Y - B.Block.Y) + (A.Offset_.y - B.Offset_.y);
-    Result.z = BlockDim*(A.Block.Z - B.Block.Z) + (A.Offset_.z - B.Offset_.z);
+    Result.x = BlockDim*(A.Block.X - B.Block.X) + (A.P.x - B.P.x);
+    Result.y = BlockDim*(A.Block.Y - B.Block.Y) + (A.P.y - B.P.y);
+    Result.z = BlockDim*(A.Block.Z - B.Block.Z) + (A.P.z - B.P.z);
     
     return(Result);
 }

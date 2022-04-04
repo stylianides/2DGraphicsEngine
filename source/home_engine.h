@@ -6,7 +6,22 @@
 #include "home_engine_platform.h"
 #include "home_engine_math.h"
 #include "home_world.cpp"
+
+struct bitmap_loaded
+{
+    uint32 *Pixels;
+    
+    int32 Width;
+    int32 Height;
+    
+    uint16 BitsPerPixel;
+    
+    int32 AlignX;
+    int32 AlignY;
+};
+
 #include "home_entity.h"
+#include "home_render_group.h"
 
 struct memory_arena
 {
@@ -63,23 +78,9 @@ struct bitmap_header
 };
 #pragma pack(pop)
 
-struct bitmap_loaded
-{
-    uint32 *Pixels;
-    
-    int32 Width;
-    int32 Height;
-    
-    uint16 BitsPerPixel;
-    
-    int32 AlignX;
-    int32 AlignY;
-};
-
 struct camera
 {
-    world_block Block;
-    v3 P;
+    world_position Pos;
     
     v2 ScreenMapping;
     
@@ -91,21 +92,25 @@ struct engine_state
 {
     memory_arena PermanentArena;
     
+    // TODO(stylia): Work on this
+    memory_arena TransientArena;
+    
     world World;
     
-    // TODO(stylia): Put this on Render group
-    real32 MetersToPixels;
-    
-    v4 BackDropColour;
-    
+    camera GameCamera;
 #if DEBUG
     camera DebugCamera;
 #endif
-    camera GameCamera;
     
+    // NOTE(stylia): Maps controller with an entity ID
     entity Player;
-    bitmap_loaded PlayerSprite;
+    uint32 ControllerEntityMapping[MAX_PLAYERS + 1];
     
+    // NOTE(stylia): Rendering
+    render_group RG;
+    v4 BackDropColour;
+    
+    // NOTE(stylia): Audio
     real32 tSin;
 };
 

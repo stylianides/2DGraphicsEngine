@@ -92,6 +92,8 @@ engine_memory *DebugMemory;
 extern "C"
 ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
 {
+    BEGIN_TIME_BLOCK(Sections_UpdateAndRender);
+    
     engine_state *State = (engine_state *)Memory;
     
 #if DEBUG
@@ -99,14 +101,9 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     camera *DebugCamera = &State->DebugCamera;
 #endif
     
-    BEGIN_TIME_BLOCK(Sections_UpdateAndRender);
-    
     memory_arena *PermArena = &State->PermanentArena;
     world *World = &State->World;
-    
-    real32 dt = Input->dt; // NOTE(stylia): Timestep
-    
-    
+    real32 dt = Input->dt;
     
     ClearScreen(Buffer, State->BackDropColour);
     
@@ -119,31 +116,27 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
                         Memory->PermanentMemorySize - sizeof(engine_state),
                         (uint8 *)Memory + sizeof(engine_state));
         
-        State->MetersToPixels = 100.0f;
+        State->RG.MetersToPixels = 40.0f;
         State->BackDropColour = V4(0.3f, 0.3f, 0.3f, 0.3f);
         
-        State->Player.Thickness = V2(30.0f, 30.0f);
-        State->Player.Colour = V4(0.5f, 0.0f, 0.0f, 1.0f);
-        State->PlayerSprite = LoadBitmap("./time_man_proto.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
+        State->Player.Sprite = LoadBitmap("./time_man_proto.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
         
         State->World.BlockDimMeters = BLOCK_DIM_METERS;
         
         int32 BlockX = INT_MAX / 2;
         int32 BlockY = INT_MAX / 2;
         
-        State->GameCamera.P = V3(0.0f, 0.0f, 0.0f);
+        State->GameCamera.Pos.P = V3(0.0f, 0.0f, 0.0f);
         
-        DebugCamera->Block.X = BlockX;
-        DebugCamera->Block.Y = BlockY;
-        DebugCamera->Block.Z = 0;
-        DebugCamera->P = V3(0.0f, 0.0f, 0.0f);
+        DebugCamera->Pos.Block = {BlockX, BlockY, 0};
+        DebugCamera->Pos.P = V3(0.0f, 0.0f, 0.0f);
         DebugCamera->RenderThickness = V2(5.0f, 5.0f);
         DebugCamera->ScreenMapping = V2((real32)(Buffer->Width / 2), (real32)(Buffer->Height / 2));
         
-        State->Player.Block.X = BlockX;
-        State->Player.Block.Y = BlockY;
-        State->Player.P = V3(1.3f, 0.5f, 0.0f);
+        State->Player.Pos.Block = {BlockX, BlockY, 0};
+        State->Player.Pos.P = V3(1.3f, 0.5f, 0.0f);
         
+        // TODO(stylia): change this
         for(uint32 Block = 0; Block < 4096; ++Block)
         {
             if(Block % 2 == 0)
@@ -203,24 +196,15 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
                 
                 ddP = V3(dXPrime, dYPrime, 0.0f);
             }
-            
             ddP *= 15;
             
-            real32 DragRate = 2.0f;
-            v3 Drag = DragRate*State->Player.dP;
-            Drag.z = 0.0f;
-            ddP -= Drag;
-            
-            v3 dP = State->Player.dP + dt*ddP;
-            v3 Delta = ddP*(Square(dt) / 2.0f) +
-                dt*State->Player.dP;
-            
-            State->Player.dP = dP;
-            State->Player.P += Delta;
+            MoveEntity(World, &State->Player, ddP, dt);
         }
     }
     
     // NOTE(stylia): Rendering
+    
+    // TODO(stylia): Facing directions for sprite
     
     v2 CameraTopLeft = DebugCamera->ScreenMapping - DebugCamera->RenderThickness;
     v2 CameraBottomRight = DebugCamera->ScreenMapping + DebugCamera->RenderThickness;
@@ -228,27 +212,29 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     
     
     // NOTE(stylia): Render players
+    
+    
     for(uint32 ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ControllerIndex++)
     {
-        // TODO(stylia): Make player controller mapping
+        // TODO(stylia): Render entities on a camera bound only
+        // TODO(stylia): Query entities on a set area
         engine_input_controller *Controller = Input->Controllers + ControllerIndex;
         
         if(Controller->IsConnected)
         {
-            world_position CameraPosition = {DebugCamera->Block, DebugCamera->P};
-            world_position PlayerPosition = {State->Player.Block, State->Player.P};
+            world_position CameraPosition = DebugCamera->Pos;
+            world_position PlayerPosition = State->Player.Pos;
             
             v3 PlayerCameraDistance = Difference(World, CameraPosition, PlayerPosition);
             
-            v2 PlayerCenter = DebugCamera->ScreenMapping - State->MetersToPixels * PlayerCameraDistance.xy;
+            v2 PlayerCenter = DebugCamera->ScreenMapping - State->RG.MetersToPixels * PlayerCameraDistance.xy;
             
             DrawRectangle(Buffer, PlayerCenter, PlayerCenter + V2(1.0f, 1.0f), V4(1.0f, 0.0f, 1.0f, 1.0f));
-            DrawBitmap(Buffer, State->PlayerSprite, PlayerCenter);
+            DrawBitmap(Buffer, State->Player.Sprite, PlayerCenter);
         }
     }
     
     END_TIME_BLOCK(Sections_UpdateAndRender);
 }
-

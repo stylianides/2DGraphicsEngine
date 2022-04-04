@@ -3,16 +3,17 @@
 #ifndef HOME_ENTITY_H
 #define HOME_ENTITY_H
 
+
 struct entity
 {
-    world_block Block;
+    // TODO(stylia): think  about if we want id in entity system
+    int32 ID;
     
-    v3 P;
+    world_position Pos;
+    
     v3 dP;
     
-    v2 Thickness;
-    
-    v4 Colour;
+    bitmap_loaded Sprite;
 };
 
 #endif //HOME_ENTITY_H
