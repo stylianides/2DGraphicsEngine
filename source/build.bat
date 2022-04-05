@@ -9,16 +9,16 @@ if not exist "../build/" mkdir "../build/"
 
 pushd "../build/"
 
-cl -LD %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/home_engine.cpp /link %LinkerFlags% -EXPORT:EngineUpdateAndRender -EXPORT:EngineOutputSound
+cl -LD %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/engine.cpp /link %LinkerFlags% -EXPORT:EngineUpdateAndRender -EXPORT:EngineOutputSound
 
-cl %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/win32_home_engine.cpp /link %LinkerFlags% user32.lib gdi32.lib winmm.lib
+cl %CompilerFlags% %WarningFlags% %ProgramFlags% ../source/win32_engine.cpp /link %LinkerFlags% user32.lib gdi32.lib winmm.lib
 
 popd
 
 REM -LD     Construct DLL
 REM -EHa-   Turns off exception handling
 REM -FC     Full paths for error jumping
-REM -Fm     Create map file with name HomeEngine
+REM -Fm     Create map file with name Engine
 REM -GR-    Disables Runtime information
 REM -nologo Microsoft logo is not displayed
 REM -Od     Disables Optimizations
