@@ -2,40 +2,54 @@
 #include "home_intrinsics.h"
 
 internal void
-DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 BitmapPos)
+DrawBitmap(engine_image *Buffer, bitmap_loaded Bitmap, v2 BitmapBottomLeft)
 {
+    int32 MinCornerX = RoundReal32ToInt32(BitmapBottomLeft.x) - Bitmap.AlignX;
+    int32 MinCornerY = RoundReal32ToInt32(BitmapBottomLeft.y) - Bitmap.AlignY;
     
-    // TODO(stylia): redesign this
-    int32 MinX = RoundReal32ToInt32(BitmapPos.x) - Bitmap.AlignX;
-    int32 MinY = RoundReal32ToInt32(BitmapPos.y) - Bitmap.AlignY;
+    int32 MaxCornerX = MinCornerX + Bitmap.Width;
+    int32 MaxCornerY = MinCornerY + Bitmap.Height;
     
-    int32 MaxX = MinX + Bitmap.Width;
-    int32 MaxY = MinY + Bitmap.Height;
+    int32 FrameBoundaryMinX = 0;
+    int32 FrameBoundaryMaxX = Buffer->Width-1;
     
-    int32 ImageStartX = (MinX < 0) ? (-MinX) : (0);
-    int32 ImageEndX = (MaxX > Buffer->Width) ? (Buffer->Width - MinX) : (Bitmap.Width);
+    int32 FrameBoundaryMinY = 0;
+    int32 FrameBoundaryMaxY = Buffer->Height-1;
     
-    int32 ImageStartY = (MinY < 0) ? (-MinY) : (0); 
-    int32 ImageEndY = (MaxY > Buffer->Height) ? (Buffer->Height - MinY) : (Bitmap.Height);
+    int32 ImageStartX = (MinCornerX < FrameBoundaryMinX) ? 
+    (FrameBoundaryMinX - MinCornerX) : (0);
     
-    int32 ScreenX = LClamp0(MinX);
-    int32 ScreenY = LClamp0(MinY);
+    int32 ImageEndX = (MaxCornerX > FrameBoundaryMaxX) ? 
+    (FrameBoundaryMaxX - MinCornerX) : (Bitmap.Width);
     
-    ScreenX = HClampN(ScreenX, Buffer->Width - 1);
-    ScreenY = HClampN(ScreenY, Buffer->Height - 1);
+    int32 ImageStartY = (MinCornerY < FrameBoundaryMinY) ? 
+    (FrameBoundaryMinY - MinCornerY) : (0); 
+    
+    int32 ImageEndY = (MaxCornerY > FrameBoundaryMaxY) ? 
+    (FrameBoundaryMaxY - MinCornerY) : (Bitmap.Height);
+    
+    int32 ScreenX = LClamp0(MinCornerX);
+    int32 ScreenY = LClamp0(MinCornerY);
+    
+    ScreenX = HClampN(ScreenX, FrameBoundaryMaxX);
+    ScreenY = HClampN(ScreenY, FrameBoundaryMaxY);
     
     uint32 *Dest = (uint32 *)Buffer->Pixels + ScreenY*Buffer->Width + ScreenX;
     uint32 *Source = (uint32 *)Bitmap.Pixels;
     
+    int32 DestX = 0;
+    int32 DestY = 0;
+    
     for(int32 Y = ImageStartY; Y < ImageEndY; ++Y)
     {
         uint32 *SourceRow = Source + Y*Bitmap.Width;
-        uint32 *DestRow = Dest + Y*Buffer->Width;
+        uint32 *DestRow = Dest + DestY++*Buffer->Width;
+        DestX = 0;
         
         for(int32 X = ImageStartX; X < ImageEndX; ++X)
         {
             uint32 *SourcePixel = SourceRow + X;
-            uint32 *DestPixel = DestRow + X;
+            uint32 *DestPixel = DestRow + DestX++;
             
             uint32 AlphaMask = 0xFF000000;
             uint8 Alpha = (uint8)((*SourcePixel & AlphaMask) >> 24);

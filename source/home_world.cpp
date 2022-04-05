@@ -10,14 +10,10 @@ CanonicalizeCoord(world *World, int32 *BlockCoord, real32 *Coord)
     
     int32 BlockOffset = RoundReal32ToInt32(*Coord / BlockDim);
     
-    *BlockCoord += BlockOffset;
-    if(BlockOffset > 0)
+    *BlockCoord = *BlockCoord + BlockOffset;
+    if(BlockOffset != 0)
     {
-        *Coord += -(BlockOffset*BlockDim);
-    }
-    else if (BlockOffset < 0)
-    {
-        *Coord += (BlockOffset*BlockDim);
+        *Coord -= (BlockOffset*BlockDim);
     }
 }
 
