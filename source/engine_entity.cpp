@@ -1,4 +1,4 @@
-#include "home_entity.h"
+#include "engine_entity.h"
 
 internal void Offset(world *World, world_position *Pos, v3 Delta)
 {
@@ -18,6 +18,19 @@ MoveEntity(world *World, entity *Entity, v3 ddP, real32 dt)
     
     v3 dP = Entity->dP + dt*ddP;
     Entity->dP = dP;
+    
+    if(Absolute(dP.x) > Absolute(dP.y))
+    {
+        Entity->FacingDirection = (dP.x > 0) ? 
+        (FacingDirections_Right) : (FacingDirections_Left);
+    }
+    else
+    {
+        Entity->FacingDirection = (dP.y > 0) ?
+        (FacingDirections_Back) : (FacingDirections_Front);
+    }
+    
+    
     
     Offset(World, &Entity->Pos, Delta);
 }

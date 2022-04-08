@@ -3,9 +3,9 @@
 #ifndef HOME_ENGINE_H
 #define HOME_ENGINE_H
 
-#include "home_engine_platform.h"
-#include "home_engine_math.h"
-#include "home_world.cpp"
+#include "engine_platform.h"
+#include "engine_math.h"
+#include "engine_world.cpp"
 
 struct bitmap_loaded
 {
@@ -20,8 +20,8 @@ struct bitmap_loaded
     int32 AlignY;
 };
 
-#include "home_entity.h"
-#include "home_render_group.h"
+#include "engine_entity.h"
+#include "engine_render_group.h"
 
 struct memory_arena
 {

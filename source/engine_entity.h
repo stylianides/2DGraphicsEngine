@@ -3,6 +3,15 @@
 #ifndef HOME_ENTITY_H
 #define HOME_ENTITY_H
 
+enum FacingDirections
+{
+    FacingDirections_Front = 0,
+    FacingDirections_Back = 1,
+    FacingDirections_Right = 2,
+    FacingDirections_Left = 3,
+    FacingDirections_Total = 4,
+    
+};
 
 struct entity
 {
@@ -13,7 +22,9 @@ struct entity
     
     v3 dP;
     
-    bitmap_loaded Sprite;
+    FacingDirections FacingDirection;
+    
+    bitmap_loaded Sprite[FacingDirections_Total];
 };
 
 #endif //HOME_ENTITY_H

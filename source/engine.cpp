@@ -1,7 +1,7 @@
 
-#include "home_engine.h"
-#include "home_render_group.cpp"
-#include "home_entity.cpp"
+#include "engine.h"
+#include "engine_render_group.cpp"
+#include "engine_entity.cpp"
 
 extern "C"
 ENGINE_OUTPUT_SOUND(EngineOutputSound)
@@ -119,7 +119,11 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         State->RG.MetersToPixels = 40.0f;
         State->BackDropColour = V4(0.3f, 0.3f, 0.3f, 0.3f);
         
-        State->Player.Sprite = LoadBitmap("./time_man_proto.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
+        // TODO(stylia): make art for back and front
+        State->Player.Sprite[FacingDirections_Right] = LoadBitmap("./time_man_proto_right.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
+        State->Player.Sprite[FacingDirections_Left] = LoadBitmap("./time_man_proto_left.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
+        State->Player.Sprite[FacingDirections_Front] = LoadBitmap("./time_man_proto_front.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
+        State->Player.Sprite[FacingDirections_Back] = LoadBitmap("./time_man_proto_back.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
         
         State->World.BlockDimMeters = BLOCK_DIM_METERS;
         
@@ -227,12 +231,14 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
             world_position CameraPosition = DebugCamera->Pos;
             world_position PlayerPosition = State->Player.Pos;
             
+            int32 FacingDirection = State->Player.FacingDirection;
+            
             v3 PlayerCameraDistance = Difference(World, CameraPosition, PlayerPosition);
             
             v2 PlayerCenter = DebugCamera->ScreenMapping - State->RG.MetersToPixels * PlayerCameraDistance.xy;
             
             DrawRectangle(Buffer, PlayerCenter, PlayerCenter + V2(1.0f, 1.0f), V4(1.0f, 0.0f, 1.0f, 1.0f));
-            DrawBitmap(Buffer, State->Player.Sprite, PlayerCenter);
+            DrawBitmap(Buffer, State->Player.Sprite[FacingDirection], PlayerCenter);
         }
     }
     

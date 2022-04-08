@@ -4,8 +4,8 @@
 #include <xinput.h>
 #include <DSound.h>
 
-#include "win32_home_engine.h"
-#include "home_engine_platform.h"
+#include "win32_engine.h"
+#include "engine_platform.h"
 
 global bool32 GlobalRunning;
 global bool32 GlobalPause;
@@ -818,8 +818,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     }
     
     // TODO(stylia): Multiple replay streams and memory maps
-    Win32ConcatString(WinState.ReplayStream.RecordFilename, MAX_PATH, ".\\home_engine_1.hei");
-    Win32ConcatString(WinState.ReplayStream.MemoryFilename, MAX_PATH, ".\\home_engine.mem");
+    Win32ConcatString(WinState.ReplayStream.RecordFilename, MAX_PATH, ".\\engine_1.hei");
+    Win32ConcatString(WinState.ReplayStream.MemoryFilename, MAX_PATH, ".\\engine.mem");
     
     int16 Channels = 2;
     int32 SamplesPerSecond = 48000;
@@ -852,8 +852,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PSTR CmdLine, I
     
     win32_engine_code EngineCode = {};
     GetCurrentDirectory(256, EngineCode.EngineDLLPath);
-    Win32ContructDLLPath(EngineCode.EngineDLLPath, 256, "\\build\\home_engine.dll\0");
-    Win32ContructDLLPath(EngineCode.EngineDLLPath_Loaded, 256, "\\build\\home_engine_loaded.dll");
+    Win32ContructDLLPath(EngineCode.EngineDLLPath, 256, "\\build\\engine.dll");
+    Win32ContructDLLPath(EngineCode.EngineDLLPath_Loaded, 256, "\\build\\engine_loaded.dll");
     Win32ReloadEngineDLL(&EngineCode);
     
     // TODO(stylia): Think about the DIB size

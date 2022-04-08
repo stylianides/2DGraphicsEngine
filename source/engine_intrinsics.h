@@ -31,7 +31,8 @@ uint32 RoundRealToUInt32(real32 Value)
 }
 
 
-uint8 BitScanForward32(uint32 Mask)
+uint8 
+BitScanForward32(uint32 Mask)
 {
 #ifdef MSVC
     unsigned long Result = 0;
@@ -43,6 +44,23 @@ uint8 BitScanForward32(uint32 Mask)
 #endif
     
     return((uint8)Result);
+}
+
+// TODO(stylia): maybe intrinsic this?
+inline int32 
+Absolutei32(int32 Value)
+{
+    int32 Result = (Value < 0) ? (-Value) : (Value);
+    
+    return(Result);
+}
+
+inline real32 
+Absolute(real32 Value)
+{
+    real32 Result = (Value < 0) ? (-Value) : (Value);
+    
+    return(Result);
 }
 
 // TODO(stylia): Intinsic this

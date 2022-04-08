@@ -323,7 +323,6 @@ struct rect2
     v2 Max;
 };
 
-
 inline int32 
 LClampN(int32 Value, int32 N)
 {
