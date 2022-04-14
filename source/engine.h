@@ -7,6 +7,15 @@
 #include "engine_math.h"
 #include "engine_world.cpp"
 
+enum FacingDirections
+{
+    FacingDirections_Front = 0,
+    FacingDirections_Back = 1,
+    FacingDirections_Right = 2,
+    FacingDirections_Left = 3,
+    FacingDirections_Total = 4,
+};
+
 struct bitmap_loaded
 {
     uint32 *Pixels;
@@ -105,6 +114,9 @@ struct engine_state
     // NOTE(stylia): Maps controller with an entity ID
     entity Player;
     uint32 ControllerEntityMapping[MAX_PLAYERS + 1];
+    
+    // TODO(stylia): remove this, just for collision detection
+    entity Wall;
     
     // NOTE(stylia): Rendering
     render_group RG;

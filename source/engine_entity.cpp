@@ -30,6 +30,7 @@ MoveEntity(world *World, entity *Entity, v3 ddP, real32 dt)
         (FacingDirections_Back) : (FacingDirections_Front);
     }
     
+    // NOTE(stylia): collision detection
     
     
     Offset(World, &Entity->Pos, Delta);

@@ -140,6 +140,12 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         State->Player.Pos.Block = {BlockX, BlockY, 0};
         State->Player.Pos.P = V3(1.3f, 0.5f, 0.0f);
         
+        State->Wall.Pos.Block = {BlockX, BlockY, 0};
+        State->Wall.Pos.P = V3(-4.8f, 0.5f, 0.0f);
+        State->Wall.FacingDirection = FacingDirections_Front;
+        State->Wall.Sprite[0] = LoadBitmap("./frost_wall.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
+        
+        
         // TODO(stylia): change this
         for(uint32 Block = 0; Block < 4096; ++Block)
         {
@@ -215,7 +221,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     DrawRectangle(Buffer, CameraTopLeft, CameraBottomRight, DebugCamera->RenderColour);
     
     
-    // NOTE(stylia): Render players
+    // NOTE(stylia): Render
     
     
     for(uint32 ControllerIndex = 0;
@@ -230,15 +236,21 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         {
             world_position CameraPosition = DebugCamera->Pos;
             world_position PlayerPosition = State->Player.Pos;
+            world_position WallPosition = State->Wall.Pos;
             
             int32 FacingDirection = State->Player.FacingDirection;
             
             v3 PlayerCameraDistance = Difference(World, CameraPosition, PlayerPosition);
+            v3 WallCameraDistance = Difference(World, CameraPosition, WallPosition);
             
             v2 PlayerCenter = DebugCamera->ScreenMapping - State->RG.MetersToPixels * PlayerCameraDistance.xy;
             
+            v2 WallCenter = 
+                DebugCamera->ScreenMapping - State->RG.MetersToPixels * WallCameraDistance.xy;
+            
             DrawRectangle(Buffer, PlayerCenter, PlayerCenter + V2(1.0f, 1.0f), V4(1.0f, 0.0f, 1.0f, 1.0f));
             DrawBitmap(Buffer, State->Player.Sprite[FacingDirection], PlayerCenter);
+            DrawBitmap(Buffer, State->Wall.Sprite[0], WallCenter);
         }
     }
     

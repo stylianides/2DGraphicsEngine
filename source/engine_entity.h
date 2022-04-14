@@ -3,27 +3,25 @@
 #ifndef HOME_ENTITY_H
 #define HOME_ENTITY_H
 
-enum FacingDirections
+enum entity_type
 {
-    FacingDirections_Front = 0,
-    FacingDirections_Back = 1,
-    FacingDirections_Right = 2,
-    FacingDirections_Left = 3,
-    FacingDirections_Total = 4,
-    
+    EntityType_Null,
+    EntityType_Player,
+    EntityType_Wall,
 };
 
 struct entity
 {
     // TODO(stylia): think  about if we want id in entity system
-    int32 ID;
+    int32 Id;
+    entity_type Type;
+    v3 Dim;
     
     world_position Pos;
     
     v3 dP;
     
     FacingDirections FacingDirection;
-    
     bitmap_loaded Sprite[FacingDirections_Total];
 };
 
