@@ -17,12 +17,14 @@ struct entity
     entity_type Type;
     v3 Dim;
     
-    world_position Pos;
-    
+    world_block Block;
+    v3 P;
     v3 dP;
+    
     
     FacingDirections FacingDirection;
     bitmap_loaded Sprite[FacingDirections_Total];
+    
 };
 
 #endif //HOME_ENTITY_H

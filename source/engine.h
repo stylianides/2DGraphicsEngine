@@ -5,7 +5,7 @@
 
 #include "engine_platform.h"
 #include "engine_math.h"
-#include "engine_world.cpp"
+#include "engine_world.h"
 
 enum FacingDirections
 {
@@ -89,7 +89,7 @@ struct bitmap_header
 
 struct camera
 {
-    world_position Pos;
+    world_position P;
     
     v2 ScreenMapping;
     

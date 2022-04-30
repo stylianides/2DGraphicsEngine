@@ -4,6 +4,8 @@
 // TODO(stylia): Make it so math.h is not needed
 #include "math.h"
 
+#define Prime(Value) Value##_Prime
+
 union v2
 {
     struct
@@ -303,6 +305,15 @@ inline real32 Inner(v2 A, v2 B)
     return(Result);
 }
 
+inline real32 Inner(v3 A, v3 B)
+{
+    real32 Result = 0;
+    
+    Result = A.x*B.x + A.y*B.y + A.z*B.z;
+    
+    return(Result);
+}
+
 inline real32 Square(real32 A)
 {
     real32 Result = A*A;
@@ -322,6 +333,47 @@ struct rect2
     v2 Min;
     v2 Max;
 };
+
+struct rect3
+{
+    v3 Min;
+    v3 Max;
+};
+
+inline bool32 
+Intersect(rect2 A, rect2 B)
+{
+    bool32 Result = !((A.Max.x < B.Min.x) ||
+                      (A.Max.y < B.Min.y) ||
+                      (B.Max.x < A.Min.x) ||
+                      (B.Max.y < A.Min.y));
+    
+    return(Result);
+}
+
+inline bool32 
+Intersect(rect3 A, rect3 B)
+{
+    bool32 Result = !((A.Max.x < B.Min.x) ||
+                      (A.Max.y < B.Min.y) ||
+                      (A.Max.z < B.Min.z) ||
+                      (B.Max.x < A.Min.x) ||
+                      (B.Max.y < A.Min.y) ||
+                      (B.Max.z < A.Min.z));
+    
+    return(Result);
+}
+
+inline rect3
+RectCenterDim(v3 Center, real32 Dim)
+{
+    rect3 Result = {};
+    
+    Result.Min = {Center.x - Dim, Center.y - Dim, Center.z - Dim};
+    Result.Max = {Center.x + Dim, Center.y + Dim, Center.z + Dim};
+    
+    return(Result);
+}
 
 inline int32 
 LClampN(int32 Value, int32 N)
@@ -346,5 +398,7 @@ HClampN(int32 Value, int32 N)
     
     return(Result);
 }
+
+
 
 #endif //HOMEMATH_H

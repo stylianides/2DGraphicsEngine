@@ -1,6 +1,7 @@
 
 #include "engine.h"
 #include "engine_render_group.cpp"
+#include "engine_world.cpp"
 #include "engine_entity.cpp"
 
 extern "C"
@@ -130,18 +131,18 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         int32 BlockX = INT_MAX / 2;
         int32 BlockY = INT_MAX / 2;
         
-        State->GameCamera.Pos.P = V3(0.0f, 0.0f, 0.0f);
+        State->GameCamera.P.Offset_ = V3(0.0f, 0.0f, 0.0f);
         
-        DebugCamera->Pos.Block = {BlockX, BlockY, 0};
-        DebugCamera->Pos.P = V3(0.0f, 0.0f, 0.0f);
+        DebugCamera->P.Block = {BlockX, BlockY, 0};
+        DebugCamera->P.Offset_ = V3(0.0f, 0.0f, 0.0f);
         DebugCamera->RenderThickness = V2(5.0f, 5.0f);
         DebugCamera->ScreenMapping = V2((real32)(Buffer->Width / 2), (real32)(Buffer->Height / 2));
         
-        State->Player.Pos.Block = {BlockX, BlockY, 0};
-        State->Player.Pos.P = V3(1.3f, 0.5f, 0.0f);
+        State->Player.Block = {BlockX, BlockY, 0};
+        State->Player.P = V3(1.3f, 0.5f, 0.0f);
         
-        State->Wall.Pos.Block = {BlockX, BlockY, 0};
-        State->Wall.Pos.P = V3(-4.8f, 0.5f, 0.0f);
+        State->Wall.Block = {BlockX, BlockY, 0};
+        State->Wall.P = V3(-4.8f, 0.5f, 0.0f);
         State->Wall.FacingDirection = FacingDirections_Front;
         State->Wall.Sprite[0] = LoadBitmap("./frost_wall.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
         
@@ -208,7 +209,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
             }
             ddP *= 15;
             
-            MoveEntity(World, &State->Player, ddP, dt);
+            MoveEntity(World, &State->Player, ddP, dt, State);
         }
     }
     
@@ -234,14 +235,16 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         
         if(Controller->IsConnected)
         {
-            world_position CameraPosition = DebugCamera->Pos;
-            world_position PlayerPosition = State->Player.Pos;
-            world_position WallPosition = State->Wall.Pos;
+            world_position CameraPosition = DebugCamera->P;
+            world_position PlayerPosition = 
+            {State->Player.Block, State->Player.P};
+            world_position WallPosition = 
+            {State->Wall.Block, State->Wall.P};
             
             int32 FacingDirection = State->Player.FacingDirection;
             
-            v3 PlayerCameraDistance = Difference(World, CameraPosition, PlayerPosition);
-            v3 WallCameraDistance = Difference(World, CameraPosition, WallPosition);
+            v3 PlayerCameraDistance = Distance(World, CameraPosition, PlayerPosition);
+            v3 WallCameraDistance = Distance(World, CameraPosition, WallPosition);
             
             v2 PlayerCenter = DebugCamera->ScreenMapping - State->RG.MetersToPixels * PlayerCameraDistance.xy;
             

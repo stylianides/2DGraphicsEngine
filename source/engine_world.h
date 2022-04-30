@@ -2,7 +2,7 @@
 #ifndef HOME_WORLD_H
 #define HOME_WORLD_H
 
-#define BLOCK_DIM_METERS 4
+#define BLOCK_DIM_METERS 10
 
 struct world_block
 {
@@ -14,10 +14,7 @@ struct world_block
 struct world_position
 {
     world_block Block;
-    
-    // NOTE(stylia): Offset from center of block
-    //               Don't change this directly, use Offset
-    v3 P;
+    v3 Offset_; // NOTE(stylia): From the block center
 };
 
 struct world
