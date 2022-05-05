@@ -107,6 +107,20 @@ DrawRectangleOutline(engine_image *Buffer, v2 Min, v2 Max,
     DrawRectangle(Buffer, V2(Max.x - Th, Min.y - Th), V2(Max.x + Th, Max.y + Th), Colour);
 }
 
+internal void
+DrawRectangleOutline(engine_image *Buffer, rect2 Rect, 
+                     uint32 Th, v4 Colour)
+{
+    v2 Min = Rect.Min;
+    v2 Max = Rect.Max;
+    
+    DrawRectangle(Buffer, V2(Min.x - Th, Min.y - Th), V2(Max.x + Th, Min.y + Th), Colour);
+    DrawRectangle(Buffer, V2(Min.x - Th, Min.y - Th), V2(Min.x + Th, Max.y + Th), Colour);
+    DrawRectangle(Buffer, V2(Min.x - Th, Max.y - Th), V2(Max.x + Th, Max.y + Th), Colour);
+    DrawRectangle(Buffer, V2(Max.x - Th, Min.y - Th), V2(Max.x + Th, Max.y + Th), Colour);
+}
+
+
 internal void 
 ClearScreen(engine_image *Buffer, v4 Colour)
 {

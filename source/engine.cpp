@@ -15,7 +15,6 @@ ENGINE_OUTPUT_SOUND(EngineOutputSound)
     real32 Interval = (2.0f*Pi32) / SamplesOverPeriod;
     
     int16 *Dest = (int16 *)Sound->SampleBuffer;
-    
     for(int32 SampleIndex = 0;
         SampleIndex < Sound->SampleCount;
         SampleIndex++)
@@ -140,10 +139,12 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
         
         State->Player.Block = {BlockX, BlockY, 0};
         State->Player.P = V3(1.3f, 0.5f, 0.0f);
+        State->Player.Dim = V3(1.0f, 1.0f, 1.0f);
         
         State->Wall.Block = {BlockX, BlockY, 0};
         State->Wall.P = V3(-4.8f, 0.5f, 0.0f);
         State->Wall.FacingDirection = FacingDirections_Front;
+        State->Wall.Dim = V3(1.0f, 1.0f, 1.0f);
         State->Wall.Sprite[0] = LoadBitmap("./frost_wall.bmp", Memory->DEBUGPlatformReadFile, 54, 30);
         
         
@@ -223,6 +224,7 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
     
     
     // NOTE(stylia): Render
+    // TODO(stylia): This is temporary
     
     
     for(uint32 ControllerIndex = 0;
@@ -253,7 +255,11 @@ ENGINE_UPDATE_AND_RENDER(EngineUpdateAndRender)
             
             DrawRectangle(Buffer, PlayerCenter, PlayerCenter + V2(1.0f, 1.0f), V4(1.0f, 0.0f, 1.0f, 1.0f));
             DrawBitmap(Buffer, State->Player.Sprite[FacingDirection], PlayerCenter);
-            DrawBitmap(Buffer, State->Wall.Sprite[0], WallCenter);
+            
+            DrawRectangleOutline(Buffer, RectCenterHalfDim(WallCenter, State->Player.Dim.xy * State->RG.MetersToPixels), 2, V4(1.0f, 0.5f, 0.3f, 1.0f));
+            DrawRectangleOutline(Buffer, RectCenterHalfDim(PlayerCenter,  State->Wall.Dim.xy * State->RG.MetersToPixels),
+                                 2, V4(1.0f, 0.6f, 0.9f, 1.0f));
+            /*DrawBitmap(Buffer, State->Wall.Sprite[0], WallCenter)*/;
         }
     }
     

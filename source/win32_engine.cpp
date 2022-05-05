@@ -1,4 +1,8 @@
 
+// TODO(stylia): Fullscreen
+// TODO(stylia): Sound fix
+// TODO(stylia): Threading
+
 #include <windows.h>
 #include <stdio.h>
 #include <xinput.h>

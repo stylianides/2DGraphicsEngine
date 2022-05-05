@@ -6,6 +6,15 @@
 
 #define Prime(Value) Value##_Prime
 
+inline real32 
+SafeRatio0(r32 Value, r32 Divisor)
+{
+    Assert(Divisor != 0);
+    real32 Result = Value / Divisor; 
+    
+    return(Result);
+}
+
 union v2
 {
     struct
@@ -138,6 +147,16 @@ inline v2 operator*(real32 A, v2 B)
     return(Result);
 }
 
+inline v2 operator/(v2 A, real32 B)
+{
+    v2 Result;
+    
+    Result.x = SafeRatio0(A.x, B);
+    Result.y = SafeRatio0(A.y, B);
+    
+    return(Result);
+}
+
 inline v2 &operator+=(v2 &A, v2 B)
 {
     A.x += B.x;
@@ -248,6 +267,17 @@ inline v3 &operator*=(v3 &A, real32 B)
     A.z *= B;
     
     return(A);
+}
+
+inline v3 operator/(v3 A, real32 B)
+{
+    v3 Result;
+    
+    Result.x = SafeRatio0(A.x, B);
+    Result.y = SafeRatio0(A.y, B);
+    Result.z = SafeRatio0(A.z, B);
+    
+    return(Result);
 }
 
 inline v4 V4(real32 X, real32 Y, real32 Z, real32 W)
@@ -364,6 +394,42 @@ Intersect(rect3 A, rect3 B)
     return(Result);
 }
 
+
+inline rect2
+RectCenterDim(v2 Center, real32 Dim)
+{
+    rect2 Result = {};
+    
+    Result.Min = {Center.x - Dim, Center.y - Dim};
+    Result.Max = {Center.x + Dim, Center.y + Dim};
+    
+    return(Result);
+}
+
+inline rect2
+RectCenterDim(v2 Center, v2 Dim)
+{
+    rect2 Result = {};
+    
+    Result.Min = Center - Dim;
+    Result.Max = Center + Dim;
+    
+    return(Result);
+}
+
+inline rect2
+RectCenterHalfDim(v2 Center, v2 Dim)
+{
+    rect2 Result = {};
+    
+    v2 HalfDim = 0.5f*Dim;
+    
+    Result.Min = Center - HalfDim;
+    Result.Max = Center + HalfDim;
+    
+    return(Result);
+}
+
 inline rect3
 RectCenterDim(v3 Center, real32 Dim)
 {
@@ -375,26 +441,50 @@ RectCenterDim(v3 Center, real32 Dim)
     return(Result);
 }
 
-inline int32 
-LClampN(int32 Value, int32 N)
+inline rect3
+RectCenterDim(v3 Center, v3 Dim)
 {
-    int32 Result = (Value < N) ? (N) : (Value);
+    rect3 Result = {};
+    
+    Result.Min = Center - Dim;
+    Result.Max = Center + Dim;
     
     return(Result);
 }
 
-inline int32 
-LClamp0(int32 Value)
+inline rect3
+RectCenterHalfDim(v3 Center, v3 Dim)
 {
-    int32 Result = LClampN(Value, 0);
+    rect3 Result = {};
+    
+    v3 HalfDim = 0.5f*Dim;
+    
+    Result.Min = Center - HalfDim;
+    Result.Max = Center + HalfDim;
     
     return(Result);
 }
 
-inline int32 
-HClampN(int32 Value, int32 N)
+inline i32 
+LClampN(i32 Value, i32 N)
 {
-    int32 Result = (Value > N) ? (N) : (Value);
+    i32 Result = (Value < N) ? (N) : (Value);
+    
+    return(Result);
+}
+
+inline i32 
+LClamp0(i32 Value)
+{
+    i32 Result = LClampN(Value, 0);
+    
+    return(Result);
+}
+
+inline i32 
+HClampN(i32 Value, i32 N)
+{
+    i32 Result = (Value > N) ? (N) : (Value);
     
     return(Result);
 }

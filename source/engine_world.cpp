@@ -48,7 +48,6 @@ Distance(world *World, world_position A, world_position B)
     return(Result);
 }
 
-
 inline world_position
 GetWorldPosition(entity *Entity)
 {

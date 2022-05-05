@@ -51,13 +51,26 @@ typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
+typedef int8 i8;
+typedef int16 i16;
+typedef int32 i32;
+typedef int64 i64;
+
+typedef uint8 u8;
+typedef uint16 u16;
+typedef uint32 u32;
+typedef uint64 u64;
+
 typedef int32 bool32;
+typedef bool32 b32;
 
 typedef float real32;
 typedef double real64;
 
-typedef size_t memory_index;
+typedef real32 r32;
+typedef real64 r64;
 
+typedef size_t memory_index;
 
 enum CodeSections
 {
